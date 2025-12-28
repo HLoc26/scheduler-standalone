@@ -1,4 +1,4 @@
-# Scheduler Standalone
+# Scheduler
 
 ## Introduction
 
