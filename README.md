@@ -1,4 +1,4 @@
-<img width="1919" height="1027" alt="image" src="https://github.com/user-attachments/assets/bcd8d192-b7c8-4827-864e-729384f09b16" /># Scheduler Standalone
+# Scheduler Standalone
 
 ## Introduction
 
