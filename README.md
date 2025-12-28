@@ -5,7 +5,7 @@
 This project is a standalone desktop application for generating and managing schedules. It is designed to help
 educational institutions automate the complex process of assigning teachers to classes, subjects, and time slots, while
 respecting various constraints.
-
+> Source code is private due to confidentiality. Access can be granted upon request.
 ## Problem
 
 Manual scheduling for schools and universities is a time-consuming and error-prone process. It involves juggling teacher
