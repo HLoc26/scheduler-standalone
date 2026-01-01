@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.shape.*?>
+<?import javafx.scene.text.Font?>
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" prefHeight="768.0" prefWidth="1200.0"
+            style="-fx-background-color: #f8fafc;"
+            stylesheets="@ScheduleView.css" xmlns="http://javafx.com/javafx/17"
+            fx:controller="application.controllers.ScheduleController">
+    <center>
+        <SplitPane dividerPositions="0.2">
+            <VBox prefWidth="300.0"
+                  style="-fx-background-color: white; -fx-border-color: #e2e8f0; -fx-border-width: 0 1 0 0;">
+
+                <HBox style="-fx-border-color: #e2e8f0; -fx-border-width: 0 0 1 0;">
+                    <children>
+                        <ToggleButton fx:id="btnTabTeacher" maxWidth="1.7976931348623157E308" onAction="#onTabChanged"
+                                      selected="true" styleClass="sidebar-tab" text="Giáo viên" HBox.hgrow="ALWAYS">
+                            <toggleGroup>
+                                <ToggleGroup fx:id="tgMode"/>
+                            </toggleGroup>
+                            <graphic>
+                                <SVGPath
+                                        content="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
+                                        scaleX="0.8" scaleY="0.8" styleClass="tab-icon"/>
+                            </graphic>
+                        </ToggleButton>
+
+                        <ToggleButton fx:id="btnTabClass" maxWidth="1.7976931348623157E308" onAction="#onTabChanged"
+                                      styleClass="sidebar-tab" text="Lớp học" toggleGroup="$tgMode" HBox.hgrow="ALWAYS">
+                            <graphic>
+                                <SVGPath
+                                        content="M4 6h18V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6zm19 2h-6c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V9c0-.55-.45-1-1-1zm-1 9h-4v-7h4v7z"
+                                        scaleX="0.8" scaleY="0.8" styleClass="tab-icon"/>
+                            </graphic>
+                        </ToggleButton>
+                    </children>
+                </HBox>
+
+                <HBox alignment="CENTER_LEFT"
+                      style="-fx-padding: 12; -fx-border-color: #f1f5f9; -fx-border-width: 0 0 1 0;">
+                    <StackPane alignment="CENTER_LEFT" HBox.hgrow="ALWAYS">
+                        <SVGPath
+                                content="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+                                fill="#94a3b8" scaleX="0.9" scaleY="0.9" translateX="10"/>
+                        <TextField fx:id="txtSearch" promptText="Tìm kiếm..." styleClass="search-input">
+                            <padding>
+                                <Insets bottom="8" left="36" right="12" top="8"/>
+                            </padding>
+                        </TextField>
+                    </StackPane>
+                </HBox>
+
+                <ListView fx:id="listViewItems" styleClass="sidebar-list" VBox.vgrow="ALWAYS"/>
+            </VBox>
+            <StackPane style="-fx-background-color: white;">
+
+                <VBox fx:id="placeholderView" alignment="CENTER" spacing="15">
+                    <SVGPath
+                            content="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"
+                            fill="#cbd5e1" scaleX="3" scaleY="3"/>
+                    <Label text="Chọn Giáo viên hoặc Lớp để xem TKB" textFill="#94a3b8">
+                        <font>
+                            <Font size="16.0"/>
+                        </font>
+                        <VBox.margin>
+                            <Insets top="20"/>
+                        </VBox.margin>
+                    </Label>
+                </VBox>
+
+                <ScrollPane fx:id="scrollPaneSchedule" fitToHeight="true" fitToWidth="true" visible="false"
+                            style="-fx-background-color: transparent; -fx-background: white;">
+                    <content>
+                        <StackPane alignment="TOP_CENTER" style="-fx-background-color: white; -fx-padding: 20;">
+                            <GridPane fx:id="scheduleGrid" hgap="2.0" vgap="2.0"
+                                      style="-fx-background-color: white; -fx-border-color: #1e293b; -fx-border-width: 1">
+                                <padding>
+                                    <Insets top="1" right="1" bottom="1" left="1"/>
+                                </padding>
+                                <columnConstraints>
+                                    <ColumnConstraints hgrow="NEVER" minWidth="50.0" prefWidth="60.0"/>
+
+                                    <ColumnConstraints hgrow="ALWAYS" percentWidth="15.5"/>
+                                    <ColumnConstraints hgrow="ALWAYS" percentWidth="15.5"/>
+                                    <ColumnConstraints hgrow="ALWAYS" percentWidth="15.5"/>
+                                    <ColumnConstraints hgrow="ALWAYS" percentWidth="15.5"/>
+                                    <ColumnConstraints hgrow="ALWAYS" percentWidth="15.5"/>
+                                    <ColumnConstraints hgrow="ALWAYS" percentWidth="15.5"/>
+                                </columnConstraints>
+                                <rowConstraints>
+                                    <RowConstraints minHeight="40.0" prefHeight="45.0" vgrow="NEVER"/>
+                                    <RowConstraints minHeight="40.0" prefHeight="50.0" vgrow="ALWAYS"/>
+                                    <RowConstraints minHeight="40.0" prefHeight="50.0" vgrow="ALWAYS"/>
+                                    <RowConstraints minHeight="40.0" prefHeight="50.0" vgrow="ALWAYS"/>
+                                    <RowConstraints minHeight="40.0" prefHeight="50.0" vgrow="ALWAYS"/>
+                                    <RowConstraints minHeight="40.0" prefHeight="50.0" vgrow="ALWAYS"/>
+
+                                    <RowConstraints minHeight="25.0" prefHeight="30.0" vgrow="NEVER"/>
+
+                                    <RowConstraints minHeight="40.0" prefHeight="50.0" vgrow="ALWAYS"/>
+                                    <RowConstraints minHeight="40.0" prefHeight="50.0" vgrow="ALWAYS"/>
+                                    <RowConstraints minHeight="40.0" prefHeight="50.0" vgrow="ALWAYS"/>
+                                    <RowConstraints minHeight="40.0" prefHeight="50.0" vgrow="ALWAYS"/>
+                                    <RowConstraints minHeight="40.0" prefHeight="50.0" vgrow="ALWAYS"/>
+                                </rowConstraints>
+                            </GridPane>
+                        </StackPane>
+                    </content>
+                </ScrollPane>
+
+                <Button fx:id="btnReGenerate" onAction="#handleReGenerate" styleClass="fab-button"
+                        StackPane.alignment="BOTTOM_RIGHT">
+                    <graphic>
+                        <SVGPath
+                                content="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
+                                fill="WHITE" scaleX="0.9" scaleY="0.9"/>
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Chạy lại thuật toán TKB"/>
+                    </tooltip>
+                    <StackPane.margin>
+                        <Insets bottom="30.0" right="30.0"/>
+                    </StackPane.margin>
+                </Button>
+
+            </StackPane>
+        </SplitPane>
+    </center>
+
+    <bottom>
+        <HBox alignment="CENTER_RIGHT" spacing="20.0"
+              style="-fx-background-color: white; -fx-border-color: #e2e8f0; -fx-border-width: 1 0 0 0;">
+            <padding>
+                <Insets bottom="8.0" left="20.0" right="20.0" top="8.0"/>
+            </padding>
+            <children>
+                <Label text="CHÚ THÍCH:" textFill="#94a3b8" style="-fx-font-weight: bold; -fx-font-size: 10px;"/>
+                <HBox alignment="CENTER" spacing="6.0">
+                    <Region prefHeight="12.0" prefWidth="12.0"
+                            style="-fx-background-color: #f5f5f5; -fx-border-color: #cbd5e1; -fx-border-radius: 2;"/>
+                    <Label text="Giờ học" textFill="#64748b"/>
+                </HBox>
+                <HBox alignment="CENTER" spacing="6.0">
+                    <Region prefHeight="12.0" prefWidth="12.0"
+                            style="-fx-background-color: #d4efdf; -fx-border-radius: 2;"/>
+                    <Label text="Tiết đôi" textFill="#64748b"/>
+                </HBox>
+                <HBox alignment="CENTER" spacing="6.0">
+                    <Region prefHeight="12.0" prefWidth="12.0"
+                            style="-fx-background-color: #fadbd8; -fx-border-radius: 2;"/>
+                    <Label text="SHCN / Chào cờ" textFill="#64748b"/>
+                </HBox>
+            </children>
+        </HBox>
+    </bottom>
+
+</BorderPane>

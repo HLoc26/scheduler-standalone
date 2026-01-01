@@ -1,0 +1,77 @@
+.root {
+    -fx-font-size: 15px;
+}
+
+/* --- SIDEBAR --- */
+.sidebar {
+    -fx-background-color: #1e293b; /* Modern dark blue (Slate 800) */
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);
+}
+
+.logo-text {
+    -fx-font-family: "Segoe UI", sans-serif;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+}
+
+.logo-subtitle {
+    -fx-font-size: 10px;
+    -fx-text-fill: #94a3b8; /* Slate 400 */
+}
+
+.menu-header {
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #64748b; /* Slate 500 */
+    -fx-padding: 10 0 5 15;
+}
+
+/* --- BUTTONS --- */
+.nav-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #cbd5e1; /* Slate 300 */
+    -fx-font-size: 14px;
+    -fx-font-family: "Segoe UI Semibold";
+    -fx-cursor: hand;
+    -fx-padding: 12 15 12 20; /* Increase padding to make button larger */
+    -fx-background-radius: 0 30 30 0; /* Round right edge */
+    -fx-margin: 0 10 0 0;
+}
+
+/* Style for Icon inside button */
+.nav-icon {
+    -fx-fill: #cbd5e1;
+    -fx-scale-x: 1.2;
+    -fx-scale-y: 1.2;
+}
+
+/* Hover State */
+.nav-button:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.05);
+    -fx-text-fill: white;
+}
+.nav-button:hover .nav-icon {
+    -fx-fill: white;
+}
+
+/* Active State (When button is selected - handled by Java) */
+/* You can add .active class to button in MainController */
+.nav-button-active {
+    -fx-background-color: rgba(52, 152, 219, 0.15); /* Light blue */
+    -fx-text-fill: #3498db; /* Main blue color */
+    -fx-border-color: #3498db;
+    -fx-border-width: 0 0 0 4; /* Left border highlight */
+}
+
+.nav-button-active .nav-icon {
+    -fx-fill: #3498db;
+}
+
+/* --- CONTENT AREA --- */
+.scroll-pane {
+    -fx-background-color: transparent;
+}
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}

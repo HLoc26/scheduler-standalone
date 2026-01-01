@@ -1,0 +1,8 @@
+.cell-hover:hover {
+    -fx-background-color: #e2e8f0 !important; /* Slate-200 */
+}
+
+/* ScrollPane fix */
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}

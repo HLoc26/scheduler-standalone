@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.shape.SVGPath?>
+<?import javafx.scene.text.Font?>
+<VBox xmlns:fx="http://javafx.com/fxml/1" alignment="CENTER" prefHeight="600.0" prefWidth="800.0" spacing="20.0"
+      style="-fx-background-color: white;" xmlns="http://javafx.com/javafx/17"
+      fx:controller="application.controllers.ScheduleGeneratorController">
+    <padding>
+        <Insets bottom="40.0" left="40.0" right="40.0" top="40.0"/>
+    </padding>
+
+    <VBox alignment="CENTER" spacing="10.0">
+        <children>
+            <SVGPath
+                    content="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+                    fill="#3498db" scaleX="3.0" scaleY="3.0">
+                <VBox.margin>
+                    <Insets bottom="15.0"/>
+                </VBox.margin>
+            </SVGPath>
+            <Label text="Đang Xếp Thời Khóa Biểu..." textFill="#2c3e50">
+                <font>
+                    <Font name="System Bold" size="24.0"/>
+                </font>
+            </Label>
+            <Label fx:id="lblSubStatus" text="Hệ thống đang khởi tạo dữ liệu..." textFill="#7f8c8d">
+                <font>
+                    <Font size="14.0"/>
+                </font>
+            </Label>
+        </children>
+    </VBox>
+
+    <VBox spacing="5.0" maxWidth="600.0">
+        <children>
+            <ProgressBar fx:id="progressBar" maxWidth="1.7976931348623157E308" prefHeight="20.0" progress="0.0"
+                         style="-fx-accent: #2ecc71;"/>
+            <Label fx:id="lblPercent" alignment="CENTER_RIGHT" maxWidth="1.7976931348623157E308" text="0%"
+                   textFill="#7f8c8d"/>
+        </children>
+    </VBox>
+
+    <VBox spacing="5.0" VBox.vgrow="ALWAYS" maxWidth="900.0">
+        <children>
+            <Label text="System Logs:" textFill="#34495e">
+                <font>
+                    <Font name="System Bold" size="12.0"/>
+                </font>
+            </Label>
+            <TextArea fx:id="txtConsole" editable="false" prefHeight="400.0" wrapText="true"
+                      style="-fx-control-inner-background: #1e1e1e; -fx-text-fill: #00ff00; -fx-font-family: 'Consolas', 'Monospaced'; -fx-highlight-fill: #00ff00; -fx-highlight-text-fill: #000000;">
+                <font>
+                    <Font name="Monospaced Regular" size="12.0"/>
+                </font>
+            </TextArea>
+        </children>
+    </VBox>
+
+    <Button fx:id="btnCancel" mnemonicParsing="false" onAction="#handleCancel"
+            style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"
+            text="HỦY BỎ">
+        <padding>
+            <Insets bottom="10.0" left="30.0" right="30.0" top="10.0"/>
+        </padding>
+    </Button>
+
+    <Button fx:id="btnViewResult" managed="false" visible="false" mnemonicParsing="false" onAction="#handleViewResult"
+            style="-fx-background-color: #2ecc71; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"
+            text="XEM KẾT QUẢ">
+        <padding>
+            <Insets bottom="10.0" left="30.0" right="30.0" top="10.0"/>
+        </padding>
+    </Button>
+
+</VBox>

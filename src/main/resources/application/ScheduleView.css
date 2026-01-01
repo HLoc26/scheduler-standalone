@@ -1,0 +1,9 @@
+.combo-box-flat {
+    -fx-background-color: #f3f4f6;
+    -fx-border-color: #d1d5db;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+.combo-box-flat:hover {
+    -fx-background-color: #e5e7eb;
+}

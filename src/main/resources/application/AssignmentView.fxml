@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.Group?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.shape.SVGPath?>
+<?import javafx.scene.text.Font?>
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/17"
+            fx:controller="application.controllers.AssignmentController"
+            prefHeight="768.0" prefWidth="1200.0" stylesheets="@AssignmentView.css">
+
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="15.0"
+              style="-fx-background-color: white; -fx-border-color: #e2e8f0; -fx-border-width: 0 0 1 0; -fx-padding: 15;">
+            <Label text="PHÂN CÔNG CHUYÊN MÔN" textFill="#1e293b">
+                <font>
+                    <Font name="System Bold" size="18.0"/>
+                </font>
+            </Label>
+
+            <Region HBox.hgrow="ALWAYS"/>
+
+            <HBox alignment="CENTER" spacing="10"
+                  style="-fx-background-color: #f8fafc; -fx-padding: 5 15 5 15; -fx-background-radius: 20; -fx-border-color: #cbd5e1; -fx-border-radius: 20;">
+                <Region prefWidth="20.0"/>
+                <Button onAction="#onToggleTranspose"
+                        style="-fx-background-color: white; -fx-border-color: #cbd5e1; -fx-cursor: hand;"
+                        text="Đổi chiều">
+                    <graphic>
+                        <SVGPath
+                                content="M17 4l-1.41 1.41L18.17 8H11v2h7.17l-2.58 2.59L17 14l5-5-5-5zM7 20l1.41-1.41L5.83 16H13v-2H5.83l2.58-2.59L7 10l-5 5 5 5z"
+                                fill="#64748b"/>
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Chuyển đổi Hàng/Cột (Môn - Lớp)"/>
+                    </tooltip>
+                </Button>
+                <Label text="Chế độ Gán Nhanh:" textFill="#64748b"/>
+
+                <ToggleButton fx:id="tglQuickMode" text="TẮT" onAction="#onToggleQuickMode"
+                              style="-fx-base: #cbd5e1; -fx-font-weight: bold;"/>
+
+                <ComboBox fx:id="cbQuickTeacher" promptText="Chọn Giáo viên mẫu..."
+                          prefWidth="200.0" disable="true"/>
+            </HBox>
+
+            <Button text="LƯU THAY ĐỔI"
+                    onAction="#handleSaveChanges"
+                    style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold;">
+            </Button>
+        </HBox>
+    </top>
+
+    <center>
+        <ScrollPane pannable="true"
+                    style="-fx-background-color: transparent; -fx-focus-color: transparent;">
+            <Group>
+                <GridPane fx:id="assignmentGrid" hgap="1.0" vgap="1.0"
+                          style="-fx-background-color: #cbd5e1; -fx-border-color: #cbd5e1;">
+                </GridPane>
+            </Group>
+        </ScrollPane>
+    </center>
+
+    <bottom>
+        <HBox spacing="20" style="-fx-padding: 10;">
+            <Label text="* Click vào ô đỏ để phân công giáo viên." textFill="#64748b" style="-fx-font-style: italic;"/>
+        </HBox>
+    </bottom>
+</BorderPane>
