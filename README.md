@@ -1,63 +1,119 @@
-# Scheduler
+<p align="center">
+  <img width="100%" src="https://github.com/user-attachments/assets/dedb6651-cc26-4244-86d9-1add93288115" />
+</p>
 
-## Introduction
+<p align="center">
+  <img src="https://img.shields.io/badge/Java-25-orange?style=for-the-badge&logo=openjdk" />
+  <img src="https://img.shields.io/badge/JavaFX-26--ea+19-blue?style=for-the-badge&logo=java" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Build-Maven-green?style=for-the-badge&logo=apache-maven" />
+</p>
 
-This project is a standalone desktop application for generating and managing schedules. It is designed to help
-educational institutions automate the complex process of assigning teachers to classes, subjects, and time slots, while
-respecting various constraints.
-> Source code is private due to confidentiality. Access can be granted upon request.
-## Problem
+## 🎯 Overview
+Automated desktop solution for school scheduling. This application transforms the error-prone manual task of time-slot assignment into an optimized process using high-performance constraint solvers.
 
-Manual scheduling for schools and universities is a time-consuming and error-prone process. It involves juggling teacher
-availability, classroom capacity, subject requirements, and student preferences. This often leads to conflicts,
-inefficient resource allocation, and a great deal of stress for administrators.
+> [!IMPORTANT]
+> **Core Engine:** The optimization logic (CP-SAT) is hosted in a private repository. Contact [dhl26052004@gmail.com](mailto:dhl26052004@gmail.com) for access to the `scheduler.engine.jar`.
 
-## Solution
+## 🚀 Key Features
+* **Smart Resource Management:** CRUD for Teachers, Classes, and Subjects with SQLite persistence.
+* **Constraint Configuration:** Visual "Busy Matrix" for teachers and customizable teaching loads.
+* **Automated Solver:** Deep integration with **Google OR-Tools** to solve NP-hard scheduling problems.
+* **Modern UI:** Responsive desktop experience built with JavaFX and FXML.
 
-This application provides an automated solution to the scheduling problem. It uses a constraint-based approach to
-generate optimal schedules that satisfy a wide range of predefined and customizable constraints. The application offers
-a user-friendly interface for configuring constraints, managing resources (teachers, classes, subjects), and viewing the
-generated schedules.
+## 🛠️ Tech Stack
+* **Language:** Java 25
+* **GUI:** JavaFX 26
+* **Database:** SQLite
+* **Optimization:** Google OR-Tools (CP-SAT Solver)
 
-## Tech Stack
+## 🏗️ Architecture
+Decoupled **MVC** (Model-View-Controller) for clear separation of UI and logic.
 
-* **Java**: The core programming language.
-* **JavaFX**: Used for building the graphical user interface.
-* **Maven**: For project management and dependency handling.
-* **Google OR-Tools**: A software suite for solving combinatorial optimization problems, used here for the scheduling
-  engine.
-* **SQLite**: For storing and managing application data.
+<details>
+  <summary>Click to see diagram</summary>
+  
+  ```mermaid
+  graph TD
+      subgraph Public_Application_Core [Application Core<br/>Open Source]
+          direction TB
+          DB[(SQLite Database)]
+          
+          subgraph MVC_Pattern [MVC Architecture]
+              M[Models<br/>Teacher, Class, Subject]
+              V[View: JavaFX FXML Screens]
+              C[Controller<br/>ScheduleGeneratorController]
+          end
+          
+          API[Optimization Interface]
+      end
+  
+      subgraph Private_Engine [Private Engine - Proprietary]
+          SOLVER[Google OR-Tools<br/>CP-SAT]
+          LOGIC[Constraint Logic & Rules]
+      end
+  
+      %% Workflow Flowchart
+      DB <--> M
+      M <--> C
+      V <--> C
+      
+      C -->|1. Request Solve| API
+      API -->|2. Data Transfer Object| LOGIC
+      LOGIC -->|3. Define Constraints| SOLVER
+      SOLVER -->|4. Return Optimal Solution| API
+      API -->|5. Update Model| M
+      M -->|6. Refresh UI| V
+  ```
+</details>
 
-## System Architecture
 
-The application is built using a Model-View-Controller (MVC) architecture:
+## 🗺️ Roadmap
+- [x] Base MVC Architecture
+- [x] Google OR-Tools Integration (CP-SAT)
+- [ ] Export schedule to Excel/PDF
+- [ ] Multi-language support (Vietnamese/English)
+- [ ] Interactive schedule view where admin can drag and drop the slots
 
-* **Model**: Represents the application's data and business logic (e.g., `Teacher`, `Grade`, `Clazz` (class)).
-* **View**: The user interface, created with JavaFX and FXML (`.fxml` files).
-* **Controller**: Manages user input and updates the model and view (e.g., `ScheduleGeneratorController`,
-  `ScheduleController`).
-* **Engine**: The core scheduling component, which leverages Google OR-Tools to solve the complex constraint
-  satisfaction problem.
+<details>
+  <summary><h2>📸 Screenshots</h2></summary>
 
-## Screenshots
+  <p align="center">
+    <span>
+      <img width="85%" src="https://github.com/user-attachments/assets/0f1cc990-abb9-4a42-a584-4336eaa81255" />
+      <br>
+      <em>Fig 1. Teacher general information and busy matrix configuration.</em>
+    </span>
+  </p>
 
-### Teacher's general information screen
+  <br>
 
-<img width="1919" height="1024" alt="image" src="https://github.com/user-attachments/assets/0f1cc990-abb9-4a42-a584-4336eaa81255" />
+  <p align="center">
+    <span>
+      <img width="85%" src="https://github.com/user-attachments/assets/b33603b2-b32e-4c3f-9ca8-02e5d219bb30" />
+      <br>
+      <em>Fig 2. Class management organized by Grade.</em>
+    </span>
+  </p>
 
-### Class management (by Grade)
+  <br>
 
-<img width="1919" height="1027" alt="image" src="https://github.com/user-attachments/assets/b33603b2-b32e-4c3f-9ca8-02e5d219bb30" />
+  <p align="center">
+    <span>
+      <img width="85%" src="https://github.com/user-attachments/assets/67275d26-e5f6-4a14-9000-58b05b3f23d9" />
+      <br>
+      <em>Fig 3. Scheduling engine solving complex constraints using CP-SAT.</em>
+    </span>
+  </p>
 
-### Teacher assignment page
+  <br>
 
-<img width="1919" height="1029" alt="image" src="https://github.com/user-attachments/assets/efd6efdb-2144-44b8-a180-9fd251e7cbec" />
+  <p align="center">
+    <span>
+      <img width="85%" src="https://github.com/user-attachments/assets/9d8f762d-a401-4596-99f2-146ba9aec199" />
+      <br>
+      <em>Fig 4. Final generated schedule view.</em>
+    </span>
+  </p>
 
-### Engine (Google OR-Tools) is solving CP-SAT problem
-
-<img width="1919" height="1026" alt="image" src="https://github.com/user-attachments/assets/67275d26-e5f6-4a14-9000-58b05b3f23d9" />
-
-### Result
-
-<img width="1919" height="1027" alt="image" src="https://github.com/user-attachments/assets/9d8f762d-a401-4596-99f2-146ba9aec199" />
-
+</details>
