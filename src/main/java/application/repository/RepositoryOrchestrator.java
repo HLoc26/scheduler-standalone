@@ -30,11 +30,13 @@ public class RepositoryOrchestrator {
         subjectRepository.initDb();
 
         sessionRepository.initDb();
-
         // Initialize session data
         for (ESession session : ESession.values()) {
-            Session s = new Session(session, new boolean[6][5]);
-            sessionRepository.save(s);
+            Session sessionInDb = sessionRepository.getByName(session);
+            if(sessionInDb == null) {
+                Session s = new Session(session, new boolean[6][5]);
+                sessionRepository.save(s);
+            }
         }
 
         // Has FK to session
