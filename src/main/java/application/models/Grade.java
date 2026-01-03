@@ -7,10 +7,10 @@ public class Grade {
     private String id;
     private String name;
     private int level;
-    private ESession session;
+    private Session session;
     private List<Clazz> classes;
 
-    public Grade(String id, String name, int level, ESession session, List<Clazz> classes) {
+    public Grade(String id, String name, int level, Session session, List<Clazz> classes) {
         this.id = id;
         this.name = name;
         this.level = level;
@@ -18,16 +18,12 @@ public class Grade {
         this.classes = classes;
     }
 
-    public Grade(String id, String name, int level, ESession session) {
-        this.id = id;
-        this.name = name;
-        this.level = level;
-        this.session = session;
-        this.classes = new ArrayList<>();
+    public Grade(String id, String name, int level, Session session) {
+        this(id, name, level, session, new ArrayList<>());
     }
     
     public Grade(String id, String name, int level) {
-        this(id, name, level, ESession.MORNING);
+        this(id, name, level, null);
     }
 
     public String getId() {
@@ -54,11 +50,11 @@ public class Grade {
         this.level = level;
     }
 
-    public ESession getSession() {
+    public Session getSession() {
         return session;
     }
 
-    public void setSession(ESession session) {
+    public void setSession(Session session) {
         this.session = session;
     }
 

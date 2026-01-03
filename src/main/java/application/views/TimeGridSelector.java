@@ -1,5 +1,6 @@
 package application.views;
 
+import application.models.ESession;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.control.Label;
@@ -11,12 +12,22 @@ import javafx.scene.layout.VBox;
 public class TimeGridSelector extends VBox {
 
     private final int PERIOD_PER_SESSION = 5;
-    private final int TOTAL_PERIODS = PERIOD_PER_SESSION * 2;
-    private final ToggleButton[][] cells = new ToggleButton[6][TOTAL_PERIODS];
+    private final int totalPeriods;
+    private final ToggleButton[][] cells;
     // UI String: Days of the week (Monday to Saturday)
     private final String[] DAYS = {"T2", "T3", "T4", "T5", "T6", "T7"};
+    private final ESession session;
+    private boolean isReadOnly = false;
+
 
     public TimeGridSelector() {
+        this(null);
+    }
+
+    public TimeGridSelector(ESession session) {
+        this.session = session;
+        this.totalPeriods = (session == null) ? PERIOD_PER_SESSION * 2 : PERIOD_PER_SESSION;
+        this.cells = new ToggleButton[6][totalPeriods];
         this.setSpacing(10);
 
         // Title Label
@@ -26,13 +37,19 @@ public class TimeGridSelector extends VBox {
         HBox gridsContainer = new HBox(30); // Spacing between two grids
         gridsContainer.setAlignment(Pos.TOP_CENTER);
 
-        // Morning Grid (Periods 0-4)
-        VBox morningBox = createSessionGrid("BUỔI SÁNG", 0);
+        if (session == null || session == ESession.MORNING) {
+            // Morning Grid (Periods 0-4)
+            VBox morningBox = createSessionGrid("BUỔI SÁNG", 0);
+            gridsContainer.getChildren().add(morningBox);
+        }
 
-        // Afternoon Grid (Periods 5-9)
-        VBox afternoonBox = createSessionGrid("BUỔI CHIỀU", 5);
+        if (session == null || session == ESession.AFTERNOON) {
+            // Afternoon Grid (Periods 5-9)
+            VBox afternoonBox = createSessionGrid("BUỔI CHIỀU", (session == null) ? 5 : 0);
+            gridsContainer.getChildren().add(afternoonBox);
+        }
 
-        gridsContainer.getChildren().addAll(morningBox, afternoonBox);
+
         this.getChildren().addAll(title, gridsContainer);
     }
 
@@ -115,6 +132,7 @@ public class TimeGridSelector extends VBox {
     }
 
     private void handleSelectAllRow(int periodIndex) {
+        if (isReadOnly) return;
         // Check if all are currently selected to toggle state
         boolean allSelected = true;
         for (int i = 0; i < DAYS.length; i++) {
@@ -131,6 +149,7 @@ public class TimeGridSelector extends VBox {
     }
 
     private void handleSelectAllDay(int dayIndex, int startPeriod) {
+        if (isReadOnly) return;
         // Check if all in this session are currently selected
         boolean allSelected = true;
         for (int i = 0; i < PERIOD_PER_SESSION; i++) {
@@ -154,9 +173,9 @@ public class TimeGridSelector extends VBox {
      * @return boolean[6][10] where true means BUSY (Teacher cannot teach), false means AVAILABLE.
      */
     public boolean[][] getBusyMatrix() {
-        boolean[][] matrix = new boolean[DAYS.length][TOTAL_PERIODS];
+        boolean[][] matrix = new boolean[DAYS.length][totalPeriods];
         for (int d = 0; d < DAYS.length; d++) {
-            for (int t = 0; t < TOTAL_PERIODS; t++) {
+            for (int t = 0; t < totalPeriods; t++) {
                 matrix[d][t] = cells[d][t].isSelected();
             }
         }
@@ -166,7 +185,7 @@ public class TimeGridSelector extends VBox {
     /**
      * Loads an existing configuration matrix into the UI.
      *
-     * @param matrix boolean[6][10]
+     * @param matrix boolean[6][10] or boolean[6][5]
      */
     public void setBusyMatrix(boolean[][] matrix) {
         if (matrix == null) return;
@@ -175,7 +194,7 @@ public class TimeGridSelector extends VBox {
         clear();
 
         for (int d = 0; d < DAYS.length; d++) {
-            for (int t = 0; t < TOTAL_PERIODS; t++) {
+            for (int t = 0; t < totalPeriods; t++) {
                 // Check bounds to prevent errors if the loaded data has different dimensions
                 if (d < matrix.length && t < matrix[d].length) {
                     cells[d][t].setSelected(matrix[d][t]);
@@ -189,8 +208,21 @@ public class TimeGridSelector extends VBox {
      */
     public void clear() {
         for (int d = 0; d < DAYS.length; d++) {
-            for (int t = 0; t < TOTAL_PERIODS; t++) {
-                cells[d][t].setSelected(false);
+            for (int t = 0; t < totalPeriods; t++) {
+                if(cells[d][t] != null) {
+                    cells[d][t].setSelected(false);
+                }
+            }
+        }
+    }
+
+    public void setReadOnly(boolean readOnly) {
+        this.isReadOnly = readOnly;
+        for (int d = 0; d < DAYS.length; d++) {
+            for (int t = 0; t < totalPeriods; t++) {
+                if (cells[d][t] != null) {
+                    cells[d][t].setDisable(readOnly);
+                }
             }
         }
     }

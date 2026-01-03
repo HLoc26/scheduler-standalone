@@ -2,6 +2,7 @@ package application.repository;
 
 import application.models.ESession;
 import application.models.Grade;
+import application.models.Session;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -20,7 +21,8 @@ public class GradeRepository implements IRepository {
                 + "id TEXT PRIMARY KEY,"
                 + "name TEXT NOT NULL,"
                 + "level INTEGER NOT NULL,"
-                + "session TEXT DEFAULT 'MORNING'"
+                + "session TEXT DEFAULT 'MORNING',"
+                + "CONSTRAINT fk_grade_session FOREIGN KEY (session) REFERENCES sessions(sessionName)"
                 + ");";
         try (
                 Connection conn = databaseHandler.getConnection();
@@ -43,11 +45,14 @@ public class GradeRepository implements IRepository {
         ) {
             ResultSet rs = stmt.executeQuery(sql);
             while (rs.next()) {
+                Session session = new Session(ESession.valueOf(rs.getString("session")), new boolean[6][5]);
+
                 Grade g = new Grade(
                         rs.getString("id"),
                         rs.getString("name"),
                         rs.getInt("level"),
-                        ESession.valueOf(rs.getString("session"))
+                        session,
+                        new ArrayList<>()
                 );
                 grades.add(g);
             }
@@ -66,11 +71,15 @@ public class GradeRepository implements IRepository {
             ps.setString(1, id);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
+
+                Session session = new Session(ESession.valueOf(rs.getString("session")), new boolean[6][5]);
+
                 return new Grade(
                         rs.getString("id"),
                         rs.getString("name"),
                         rs.getInt("level"),
-                        ESession.valueOf(rs.getString("session"))
+                        session,
+                        new ArrayList<>()
                 );
             }
             return null;
@@ -80,7 +89,7 @@ public class GradeRepository implements IRepository {
     }
 
     public boolean save(Grade grade) {
-        String sql = "INSERT INTO grades (id, name, level, session) VALUES (?, ?, ?, ?) " +
+        String sql = "INSERT INTO grades (id, name, level, session) VALUES (?, ?, ?, ?, ?) " +
                 "ON CONFLICT(id) DO UPDATE SET name = excluded.name, level = excluded.level, session = excluded.session;";
         try (
                 Connection conn = databaseHandler.getConnection();
@@ -89,7 +98,7 @@ public class GradeRepository implements IRepository {
             ps.setString(1, grade.getId());
             ps.setString(2, grade.getName());
             ps.setInt(3, grade.getLevel());
-            ps.setString(4, grade.getSession().name());
+            ps.setString(4, grade.getSession().getSessionName().toString());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             throw new RuntimeException(e);

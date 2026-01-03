@@ -223,7 +223,7 @@ public class ScheduleController {
             if (c != null) {
                 Grade g = repo.getGradeRepository().getById(c.getGradeId());
                 if (g != null) {
-                    session = g.getSession();
+                    session = g.getSession().getSessionName();
                 }
             }
             int dayInt = item.day.ordinal() + 2;

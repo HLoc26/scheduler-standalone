@@ -68,7 +68,7 @@ public class SchedulerDataPreparer {
                     assign.getSubjectId(),
                     curr.getPeriodsPerWeek(),
                     curr.isShouldBeDoubled(),
-                    EnumMapper.toEngineSession(grade.getSession()),
+                    EnumMapper.toEngineSession(grade.getSession().getSessionName()),
                     grade.getLevel(),
                     teacher.getId(),
                     teacher.getBusyMatrix()

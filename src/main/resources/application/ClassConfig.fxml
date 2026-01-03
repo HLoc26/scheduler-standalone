@@ -4,7 +4,7 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.Font?>
-<SplitPane xmlns:fx="http://javafx.com/fxml/1" dividerPositions="0.2" prefHeight="700.0" prefWidth="1100.0"
+<SplitPane xmlns:fx="http://javafx.com/fxml/1" dividerPositions="0.2" prefHeight="1000.0" prefWidth="1100.0"
            style="-fx-background-color: white;" xmlns="http://javafx.com/javafx/17"
            fx:controller="application.controllers.ClassConfigController">
     <VBox spacing="10.0" style="-fx-background-color: #f8f9fa;">
@@ -75,6 +75,7 @@
             </VBox>
         </top>
         <center>
+            <ScrollPane fitToWidth="true" style="-fx-background-color: transparent; -fx-background: transparent;">
             <VBox spacing="10.0">
                 <padding>
                     <Insets bottom="10.0" left="20.0" right="20.0"/>
@@ -109,8 +110,13 @@
                         <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
                     </columnResizePolicy>
                 </TableView>
+                <Separator/>
 
+                <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"
+                       text="3. Thời gian bận"/>
+                <StackPane fx:id="timeGridContainer" alignment="CENTER_LEFT"/>
             </VBox>
+            </ScrollPane>
         </center>
         <bottom>
             <HBox alignment="CENTER_RIGHT" spacing="15.0"

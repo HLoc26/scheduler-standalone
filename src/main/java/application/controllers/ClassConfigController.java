@@ -2,6 +2,7 @@ package application.controllers;
 
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
+import application.views.TimeGridSelector;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
@@ -9,6 +10,7 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.layout.StackPane;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,9 +52,13 @@ public class ClassConfigController {
     @FXML
     private Button btnDeleteClass;
     @FXML
+    private StackPane timeGridContainer;
+    @FXML
     private Button btnAddGrade;
     @FXML
     private Button btnDeleteGrade;
+
+    private TimeGridSelector timeGridSelector;
 
     public ClassConfigController(RepositoryOrchestrator repo) {
         this.repo = repo;
@@ -68,8 +74,10 @@ public class ClassConfigController {
 
             if (currentEditingGrade != null) {
                 ESession session = newVal == btnMorning ? ESession.MORNING : ESession.AFTERNOON;
-                currentEditingGrade.setSession(session);
-                repo.getGradeRepository().save(currentEditingGrade);
+                Session dbSession = repo.getSessionRepository().getByName(session);
+                currentEditingGrade.setSession(dbSession);
+                // Re-create time grid when session changes, and reset matrix
+                updateTimeGridForGrade(currentEditingGrade, true);
             }
         });
 
@@ -82,8 +90,9 @@ public class ClassConfigController {
         // Set up the table
         setUpTableColumns();
 
-        // Initially hide buttons
+        // Initially hide buttons and clear grid
         setButtonVisibility(false, false, false);
+        timeGridContainer.getChildren().clear();
     }
 
     private void setButtonVisibility(boolean addClass, boolean deleteClass, boolean deleteGrade) {
@@ -335,16 +344,22 @@ public class ClassConfigController {
             btnSave.setText("LƯU CẤU HÌNH KHỐI");
 
             setButtonVisibility(true, false, true);
-            
+
             // Enable session toggle for Grade config
             btnMorning.setDisable(false);
             btnAfternoon.setDisable(false);
-            if (g.getSession() == ESession.MORNING) {
+            if (g.getSession().getSessionName() == ESession.MORNING) {
                 sessionGroup.selectToggle(btnMorning);
             } else {
                 sessionGroup.selectToggle(btnAfternoon);
             }
-            
+
+            // Update time grid for the selected grade
+            updateTimeGridForGrade(g, false); // false to load existing matrix
+            if (timeGridSelector != null) {
+                timeGridSelector.setReadOnly(true);
+            }
+
         } else {
             // CASE 2: VIEWING CLASS
             Clazz c = (Clazz) item.data();
@@ -361,23 +376,46 @@ public class ClassConfigController {
             btnSave.setText("CHẾ ĐỘ XEM");
 
             setButtonVisibility(false, true, false);
-            
+
             // Disable session toggle for Class view (inherited from Grade)
             btnMorning.setDisable(true);
             btnAfternoon.setDisable(true);
-            
+
             // Show inherited session
             Grade g = repo.getGradeRepository().getById(c.getGradeId());
             if (g != null) {
-                if (g.getSession() == ESession.MORNING) {
+                if (g.getSession().getSessionName() == ESession.MORNING) {
                     sessionGroup.selectToggle(btnMorning);
                 } else {
                     sessionGroup.selectToggle(btnAfternoon);
                 }
+                // Update time grid for the selected grade
+                updateTimeGridForGrade(g, false); // false to load existing matrix
+                if (timeGridSelector != null) {
+                    timeGridSelector.setReadOnly(true);
+                }
+            } else {
+                // Clear time grid when viewing a class
+                timeGridContainer.getChildren().clear();
+                timeGridSelector = null; // clear reference
             }
         }
 
         loadCurriculumTable(gradeId);
+    }
+
+    private void updateTimeGridForGrade(Grade grade, boolean resetMatrix) {
+        if (grade == null) {
+            timeGridContainer.getChildren().clear();
+            return;
+        }
+        timeGridContainer.getChildren().clear();
+        timeGridSelector = new TimeGridSelector(grade.getSession().getSessionName());
+        Session session = repo.getSessionRepository().getByName(grade.getSession().getSessionName());
+        if (!resetMatrix) {
+            timeGridSelector.setBusyMatrix(session.getBusyMatrix());
+        }
+        timeGridContainer.getChildren().add(timeGridSelector);
     }
 
     @FXML
@@ -391,6 +429,9 @@ public class ClassConfigController {
         for (Curriculum c : list) {
             repo.getCurriculumRepository().save(c);
         }
+
+        // Also save the grade itself to persist session and busy matrix
+        repo.getGradeRepository().save(currentEditingGrade);
 
         // Show success alert
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
