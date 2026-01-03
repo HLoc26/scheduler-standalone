@@ -17,6 +17,7 @@ public class TimeGridSelector extends VBox {
     // UI String: Days of the week (Monday to Saturday)
     private final String[] DAYS = {"T2", "T3", "T4", "T5", "T6", "T7"};
     private final ESession session;
+    private int remainPeriods;
     private boolean isReadOnly = false;
 
 
@@ -29,11 +30,11 @@ public class TimeGridSelector extends VBox {
         this.totalPeriods = (session == null) ? PERIOD_PER_SESSION * 2 : PERIOD_PER_SESSION;
         this.cells = new ToggleButton[6][totalPeriods];
         this.setSpacing(10);
+        this.remainPeriods = DAYS.length * this.totalPeriods;
 
         // Title Label
         Label title = new Label("Đăng ký tiết nghỉ (Bấm vào ô để chọn nghỉ)");
         title.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #2c3e50;");
-
         HBox gridsContainer = new HBox(30); // Spacing between two grids
         gridsContainer.setAlignment(Pos.TOP_CENTER);
 
@@ -99,10 +100,10 @@ public class TimeGridSelector extends VBox {
                     if (newVal) {
                         btn.setStyle("-fx-base: #ef9a9a; -fx-text-fill: red; -fx-font-weight: bold;");
                         btn.setText("X");
-                    } else {
+                        remainPeriods--;                    } else {
                         btn.setStyle("-fx-base: #e3f2fd;");
                         btn.setText("");
-                    }
+                        remainPeriods++;                    }
                 });
 
                 // Store reference
@@ -225,5 +226,9 @@ public class TimeGridSelector extends VBox {
                 }
             }
         }
+    }
+
+    public int getRemainPeriods() {
+        return remainPeriods;
     }
 }
