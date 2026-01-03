@@ -2,6 +2,7 @@ package application.controllers;
 
 import application.repository.RepositoryOrchestrator;
 import engine.factories.SchedulerEngineFactory;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -13,6 +14,8 @@ import java.io.IOException;
 public class MainController {
 
     private final RepositoryOrchestrator repo;
+    @FXML
+    public Button btnSessions;
     @FXML
     private StackPane contentArea;
     @FXML
@@ -58,6 +61,14 @@ public class MainController {
         scheduleController.setOnReGenerateRequest(this::showScheduleGenerator);
         loadView("ScheduleView.fxml", scheduleController);
         setActiveButton(btnScheduler);
+    }
+
+
+    @FXML
+    public void showSessionConfig() {
+        SessionViewController sessionViewController = new SessionViewController(repo);
+        loadView("SessionView.fxml", sessionViewController);
+        setActiveButton(btnSessions);
     }
 
     @FXML
@@ -122,6 +133,7 @@ public class MainController {
         btnClasses.setStyle("-fx-background-color: transparent;");
         btnScheduler.setStyle("-fx-background-color: transparent;");
         btnAssignment.setStyle("-fx-background-color: transparent;");
+        btnSessions.setStyle("-fx-background-color: transparent;");
         
         // Highlight the selected button
         activeButton.setStyle("-fx-background-color: #2980b9;");
