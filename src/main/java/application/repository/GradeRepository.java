@@ -45,7 +45,7 @@ public class GradeRepository implements IRepository {
         ) {
             ResultSet rs = stmt.executeQuery(sql);
             while (rs.next()) {
-                Session session = new Session(ESession.valueOf(rs.getString("session")), new boolean[6][5]);
+                Session session = new Session(ESession.valueOf(rs.getString("session")), new boolean[6][10]);
 
                 Grade g = new Grade(
                         rs.getString("id"),
@@ -72,7 +72,7 @@ public class GradeRepository implements IRepository {
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
 
-                Session session = new Session(ESession.valueOf(rs.getString("session")), new boolean[6][5]);
+                Session session = new Session(ESession.valueOf(rs.getString("session")), new boolean[6][10]);
 
                 return new Grade(
                         rs.getString("id"),

@@ -27,7 +27,7 @@ public class TimeGridSelector extends VBox {
 
     public TimeGridSelector(ESession session) {
         this.session = session;
-        this.totalPeriods = (session == null) ? PERIOD_PER_SESSION * 2 : PERIOD_PER_SESSION;
+        this.totalPeriods = 10;
         this.cells = new ToggleButton[6][totalPeriods];
         this.setSpacing(10);
         this.remainPeriods = DAYS.length * this.totalPeriods;
@@ -46,7 +46,7 @@ public class TimeGridSelector extends VBox {
 
         if (session == null || session == ESession.AFTERNOON) {
             // Afternoon Grid (Periods 5-9)
-            VBox afternoonBox = createSessionGrid("BUỔI CHIỀU", (session == null) ? 5 : 0);
+            VBox afternoonBox = createSessionGrid("BUỔI CHIỀU", 5);
             gridsContainer.getChildren().add(afternoonBox);
         }
 
@@ -177,7 +177,9 @@ public class TimeGridSelector extends VBox {
         boolean[][] matrix = new boolean[DAYS.length][totalPeriods];
         for (int d = 0; d < DAYS.length; d++) {
             for (int t = 0; t < totalPeriods; t++) {
-                matrix[d][t] = cells[d][t].isSelected();
+                if (cells[d][t] != null) {
+                    matrix[d][t] = cells[d][t].isSelected();
+                }
             }
         }
         return matrix;
@@ -198,7 +200,9 @@ public class TimeGridSelector extends VBox {
             for (int t = 0; t < totalPeriods; t++) {
                 // Check bounds to prevent errors if the loaded data has different dimensions
                 if (d < matrix.length && t < matrix[d].length) {
-                    cells[d][t].setSelected(matrix[d][t]);
+                    if (cells[d][t] != null) {
+                        cells[d][t].setSelected(matrix[d][t]);
+                    }
                 }
             }
         }
