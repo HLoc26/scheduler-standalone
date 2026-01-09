@@ -26,6 +26,8 @@ public class SchedulerDataPreparer {
         List<Clazz> classes = repo.getClassRepository().getAll();
         List<Grade> grades = repo.getGradeRepository().getAll();
         List<Curriculum> curriculums = repo.getCurriculumRepository().getAll();
+        List<Teacher> teachers = repo.getTeacherRepository().getAll();
+        List<Session> sessions = repo.getSessionRepository().getAll();
 
         // Build Lookup Maps (from O(n) to O(1))
         Map<String, Clazz> classMap = new HashMap<>();
@@ -33,6 +35,12 @@ public class SchedulerDataPreparer {
 
         Map<String, Grade> gradeMap = new HashMap<>();
         grades.forEach(g -> gradeMap.put(g.getId(), g));
+
+        Map<String, Teacher> teacherMap = new HashMap<>();
+        teachers.forEach(t -> teacherMap.put(t.getId(), t));
+
+        Map<ESession, boolean[][]> sessionMatrixMap = new HashMap<>();
+        sessions.forEach(s -> sessionMatrixMap.put(s.getSessionName(), s.getBusyMatrix()));
 
         // Curriculum map's key is: GradeID + "_" + SubjectID
         Map<String, Curriculum> curriculumMap = new HashMap<>();
@@ -54,11 +62,31 @@ public class SchedulerDataPreparer {
             Curriculum curr = curriculumMap.get(currKey);
 
             // Teacher
-            Teacher teacher = repo.getTeacherRepository().getById(assign.getTeacherId());
+            Teacher teacher = teacherMap.get(assign.getTeacherId());
+            if (teacher == null) {
+                System.err.println("WARN: Missing teacher for Assignment " + assign.getId());
+                continue;
+            }
 
             if (curr == null) {
                 System.err.println("WARN: Missing curriculum for Class " + clazz.getClassName() + " Subject " + assign.getSubjectId());
                 continue;
+            }
+
+            boolean[][] sessionBusyMatrix = sessionMatrixMap.get(grade.getSession().getSessionName());
+            if (sessionBusyMatrix == null) {
+                sessionBusyMatrix = new boolean[EWeekDay.values().length][10];
+            }
+
+            // Empty matrix for class specific busy (not yet implemented in DB)
+            boolean[][] classSpecificBusyMatrix = new boolean[EWeekDay.values().length][10];
+            
+            // Merge Session Busy Matrix into Class Busy Matrix
+            boolean[][] finalClassBusyMatrix = new boolean[EWeekDay.values().length][10];
+            for (int d = 0; d < EWeekDay.values().length; d++) {
+                for (int p = 0; p < 10; p++) {
+                    finalClassBusyMatrix[d][p] = sessionBusyMatrix[d][p] || classSpecificBusyMatrix[d][p];
+                }
             }
 
             taskDataList.add(new TaskData(
@@ -71,8 +99,8 @@ public class SchedulerDataPreparer {
                     EnumMapper.toEngineSession(grade.getSession().getSessionName()),
                     grade.getLevel(),
                     teacher.getId(),
-                    teacher.getBusyMatrix()
-
+                    teacher.getBusyMatrix(),
+                    finalClassBusyMatrix
             ));
         }
 

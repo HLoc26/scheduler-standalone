@@ -2,7 +2,7 @@ package application.models;
 
 public class Session {
     private ESession sessionName;
-    private boolean[][] busyMatrix; // 6 days x 5 periods
+    private boolean[][] busyMatrix; // 6 days x 10 periods
 
     public Session(ESession sessionName, boolean[][] busyMatrix) {
         this.sessionName = sessionName;
@@ -10,7 +10,7 @@ public class Session {
     }
 
     public Session(ESession sessionName) {
-        this(sessionName, new boolean[EWeekDay.values().length][5]);
+        this(sessionName, new boolean[EWeekDay.values().length][10]);
     }
 
     public static String serializeBusyMatrix(boolean[][] matrix) {
@@ -25,11 +25,11 @@ public class Session {
     }
 
     public static boolean[][] deserializeBusyMatrix(String s) {
-        boolean[][] matrix = new boolean[EWeekDay.values().length][5];
-        if (s == null || s.length() < EWeekDay.values().length * 5) return matrix;
+        boolean[][] matrix = new boolean[EWeekDay.values().length][10];
+        if (s == null || s.length() < EWeekDay.values().length * 10) return matrix;
         int index = 0;
         for (int i = 0; i < EWeekDay.values().length; i++) {
-            for (int j = 0; j < 5; j++) {
+            for (int j = 0; j < 10; j++) {
                 if (index < s.length()) {
                     matrix[i][j] = s.charAt(index++) == '1';
                 }

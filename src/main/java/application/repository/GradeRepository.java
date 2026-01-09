@@ -45,7 +45,7 @@ public class GradeRepository implements IRepository {
         ) {
             ResultSet rs = stmt.executeQuery(sql);
             while (rs.next()) {
-                Session session = new Session(ESession.valueOf(rs.getString("session")), new boolean[6][5]);
+                Session session = new Session(ESession.valueOf(rs.getString("session")), new boolean[6][10]);
 
                 Grade g = new Grade(
                         rs.getString("id"),
@@ -72,7 +72,7 @@ public class GradeRepository implements IRepository {
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
 
-                Session session = new Session(ESession.valueOf(rs.getString("session")), new boolean[6][5]);
+                Session session = new Session(ESession.valueOf(rs.getString("session")), new boolean[6][10]);
 
                 return new Grade(
                         rs.getString("id"),
@@ -113,6 +113,45 @@ public class GradeRepository implements IRepository {
         ) {
             ps.setString(1, id);
             return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public List<Grade> getBySession(ESession session){
+        String sql = "SELECT * FROM grades WHERE session = ?";
+        List<Grade> grades = new ArrayList<>();
+        try (
+                Connection conn = databaseHandler.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)
+        ) {
+            ps.setString(1, session.toString());
+            ResultSet rs = ps.executeQuery();
+            while(rs.next()){
+                grades.add(new Grade(
+                        rs.getString("id"),
+                        rs.getString("name"),
+                        rs.getInt("level")
+                ));
+            }
+            return grades;
+        } catch (SQLException e){
+            throw new RuntimeException(e);
+        }
+    }
+
+    public int getPeriodsPerWeek(String gradeId){
+        String sql = "SELECT g.id, SUM(c.periods_per_week) AS total_periods FROM grades g JOIN curriculums c ON g.id = c.grade_id WHERE g.id = ? GROUP BY g.id";
+        try (
+                Connection conn = databaseHandler.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)
+        ) {
+            ps.setString(1, gradeId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("total_periods");
+            }
+            throw new SQLException("No data found for grade");
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

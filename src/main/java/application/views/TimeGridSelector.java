@@ -17,6 +17,7 @@ public class TimeGridSelector extends VBox {
     // UI String: Days of the week (Monday to Saturday)
     private final String[] DAYS = {"T2", "T3", "T4", "T5", "T6", "T7"};
     private final ESession session;
+    private int remainPeriods;
     private boolean isReadOnly = false;
 
 
@@ -26,14 +27,14 @@ public class TimeGridSelector extends VBox {
 
     public TimeGridSelector(ESession session) {
         this.session = session;
-        this.totalPeriods = (session == null) ? PERIOD_PER_SESSION * 2 : PERIOD_PER_SESSION;
+        this.totalPeriods = 10;
         this.cells = new ToggleButton[6][totalPeriods];
         this.setSpacing(10);
+        this.remainPeriods = DAYS.length * this.totalPeriods;
 
         // Title Label
         Label title = new Label("Đăng ký tiết nghỉ (Bấm vào ô để chọn nghỉ)");
         title.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #2c3e50;");
-
         HBox gridsContainer = new HBox(30); // Spacing between two grids
         gridsContainer.setAlignment(Pos.TOP_CENTER);
 
@@ -45,7 +46,7 @@ public class TimeGridSelector extends VBox {
 
         if (session == null || session == ESession.AFTERNOON) {
             // Afternoon Grid (Periods 5-9)
-            VBox afternoonBox = createSessionGrid("BUỔI CHIỀU", (session == null) ? 5 : 0);
+            VBox afternoonBox = createSessionGrid("BUỔI CHIỀU", 5);
             gridsContainer.getChildren().add(afternoonBox);
         }
 
@@ -99,10 +100,10 @@ public class TimeGridSelector extends VBox {
                     if (newVal) {
                         btn.setStyle("-fx-base: #ef9a9a; -fx-text-fill: red; -fx-font-weight: bold;");
                         btn.setText("X");
-                    } else {
+                        remainPeriods--;                    } else {
                         btn.setStyle("-fx-base: #e3f2fd;");
                         btn.setText("");
-                    }
+                        remainPeriods++;                    }
                 });
 
                 // Store reference
@@ -176,7 +177,9 @@ public class TimeGridSelector extends VBox {
         boolean[][] matrix = new boolean[DAYS.length][totalPeriods];
         for (int d = 0; d < DAYS.length; d++) {
             for (int t = 0; t < totalPeriods; t++) {
-                matrix[d][t] = cells[d][t].isSelected();
+                if (cells[d][t] != null) {
+                    matrix[d][t] = cells[d][t].isSelected();
+                }
             }
         }
         return matrix;
@@ -197,7 +200,9 @@ public class TimeGridSelector extends VBox {
             for (int t = 0; t < totalPeriods; t++) {
                 // Check bounds to prevent errors if the loaded data has different dimensions
                 if (d < matrix.length && t < matrix[d].length) {
-                    cells[d][t].setSelected(matrix[d][t]);
+                    if (cells[d][t] != null) {
+                        cells[d][t].setSelected(matrix[d][t]);
+                    }
                 }
             }
         }
@@ -225,5 +230,9 @@ public class TimeGridSelector extends VBox {
                 }
             }
         }
+    }
+
+    public int getRemainPeriods() {
+        return remainPeriods;
     }
 }
