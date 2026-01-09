@@ -301,7 +301,7 @@ public class ScheduleController {
         // Determine Background Color
         String bgStyle = "-fx-background-color: #f5f5f5;";
         if (isDouble) bgStyle = "-fx-background-color: #d4efdf;"; // Light mint
-        if ("SH_LOP".equalsIgnoreCase(subject) || "Chào cờ".equalsIgnoreCase(subject))
+        if ("Sinh hoạt lớp".equalsIgnoreCase(subject) || "Chào cờ".equalsIgnoreCase(subject))
             bgStyle = "-fx-background-color: #fadbd8;"; // Light red
 
         // Apply style (Background ONLY, no border)

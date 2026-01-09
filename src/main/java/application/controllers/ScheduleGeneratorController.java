@@ -3,12 +3,11 @@ package application.controllers;
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
 import application.utils.SchedulerDataPreparer;
-import engine.SchedulerEngine;
-import engine.definitions.Slot;
-import engine.definitions.Variable;
-import engine.factories.SchedulerEngineFactory;
-import engine.definitions.TaskData;
-import engine.interfaces.ISchedulerEngine;
+import engine.v2.definitions.Slot;
+import engine.v2.definitions.Variable;
+import engine.SchedulerEngineFactory;
+import engine.v2.definitions.TaskData;
+import engine.v2.interfaces.ISchedulerEngine;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
@@ -157,7 +156,7 @@ public class ScheduleGeneratorController {
             updateMessage("Khởi tạo Google OR-Tools Solver...");
             updateValue("[GIẢI THUẬT] Đang khởi tạo mô hình CP-SAT...");
 
-            ISchedulerEngine engine = engineFactory.createEngine();
+            ISchedulerEngine engine = engineFactory.createEngineV2();
 
             updateProgress(50, 100);
 
