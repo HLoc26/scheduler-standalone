@@ -9,12 +9,15 @@ import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 import javafx.util.Callback;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public class TeacherController {
@@ -215,10 +218,64 @@ public class TeacherController {
     }
 
     private void createNewTeacher() {
-        Teacher newTeacher = new Teacher("Giáo viên mới", "NEW");
-        teacherList.add(newTeacher);
-        teacherListView.getSelectionModel().select(newTeacher);
-        nameField.requestFocus();
+        Dialog<Teacher> dialog = new Dialog<>();
+        dialog.setTitle("Thêm Giáo viên mới");
+        dialog.setHeaderText("Nhập thông tin giáo viên");
+
+        ButtonType addButtonType = new ButtonType("Thêm", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(addButtonType, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        TextField nameInput = new TextField();
+        nameInput.setPromptText("Tên giáo viên");
+        TextField codeInput = new TextField();
+        codeInput.setPromptText("Mã giáo viên (tùy chọn)");
+
+        grid.add(new Label("Tên:"), 0, 0);
+        grid.add(nameInput, 1, 0);
+        grid.add(new Label("Mã:"), 0, 1);
+        grid.add(codeInput, 1, 1);
+
+        dialog.getDialogPane().setContent(grid);
+
+        // Enable/Disable Add button depending on whether a name was entered.
+        javafx.scene.Node addButton = dialog.getDialogPane().lookupButton(addButtonType);
+        addButton.setDisable(true);
+
+        nameInput.textProperty().addListener((observable, oldValue, newValue) -> {
+            addButton.setDisable(newValue.trim().isEmpty());
+        });
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == addButtonType) {
+                String name = nameInput.getText().trim();
+                String code = codeInput.getText().trim();
+                if (code.isEmpty()) {
+                    code = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+                }
+                return new Teacher(name, code);
+            }
+            return null;
+        });
+
+        Optional<Teacher> result = dialog.showAndWait();
+
+        result.ifPresent(newTeacher -> {
+            // Check for duplicate ID if user manually entered one
+            if (repositoryOrchestrator.getTeacherRepository().getById(newTeacher.getId()) != null) {
+                showAlert(Alert.AlertType.ERROR, "Lỗi", "Mã giáo viên đã tồn tại!");
+                return;
+            }
+
+            repositoryOrchestrator.getTeacherRepository().insert(newTeacher);
+            teacherList.add(newTeacher);
+            teacherListView.getSelectionModel().select(newTeacher);
+            nameField.requestFocus();
+        });
     }
 
     private void saveCurrentTeacher() {
@@ -229,7 +286,6 @@ public class TeacherController {
             selected.setBusyMatrix(timeGridSelector.getBusyMatrix());
 
             // Save assignment list from table to Teacher Object
-            // (Need to create a copy to avoid shared references)
             selected.setAssignments(FXCollections.observableArrayList(currentAssignments));
 
             // Save to DB
@@ -252,7 +308,7 @@ public class TeacherController {
                         repositoryOrchestrator.getAssignmentRepository().save(a);
                     } catch (Exception e) {
                         // Ignore if already exists
-                        // System.out.println("Assignment already exists: " + a.getId());
+                         System.out.println("Assignment already exists: " + a.getId());
                     }
                 }
 
@@ -271,6 +327,11 @@ public class TeacherController {
             Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Xoá giáo viên " + selected + "?", ButtonType.YES, ButtonType.NO);
             alert.showAndWait().ifPresent(response -> {
                 if (response == ButtonType.YES) {
+                    // Delete assignments first
+                    repositoryOrchestrator.getAssignmentRepository().deleteByTeacherId(selected.getId());
+                    // Delete teacher
+                    repositoryOrchestrator.getTeacherRepository().delete(selected.getId());
+
                     teacherList.remove(selected);
                     teacherListView.getSelectionModel().clearSelection();
                 }
