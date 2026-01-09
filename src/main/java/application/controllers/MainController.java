@@ -1,8 +1,7 @@
 package application.controllers;
 
 import application.repository.RepositoryOrchestrator;
-import engine.factories.SchedulerEngineFactory;
-import javafx.event.ActionEvent;
+import engine.SchedulerEngineFactory;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
