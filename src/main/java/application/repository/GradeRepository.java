@@ -88,8 +88,32 @@ public class GradeRepository implements IRepository {
         }
     }
 
+    public Grade getByLevel(int level) {
+        String sql = "SELECT * FROM grades WHERE level = ?";
+        try (
+                Connection conn = databaseHandler.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)
+        ) {
+            ps.setInt(1, level);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                Session session = new Session(ESession.valueOf(rs.getString("session")), new boolean[6][10]);
+                return new Grade(
+                        rs.getString("id"),
+                        rs.getString("name"),
+                        rs.getInt("level"),
+                        session,
+                        new ArrayList<>()
+                );
+            }
+            return null;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public boolean save(Grade grade) {
-        String sql = "INSERT INTO grades (id, name, level, session) VALUES (?, ?, ?, ?, ?) " +
+        String sql = "INSERT INTO grades (id, name, level, session) VALUES (?, ?, ?, ?) " +
                 "ON CONFLICT(id) DO UPDATE SET name = excluded.name, level = excluded.level, session = excluded.session;";
         try (
                 Connection conn = databaseHandler.getConnection();

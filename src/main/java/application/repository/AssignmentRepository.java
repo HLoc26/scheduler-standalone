@@ -155,6 +155,19 @@ public class AssignmentRepository implements IRepository {
         }
     }
 
+    public boolean deleteByTeacherId(String teacherId) {
+        String sql = "DELETE FROM assignments WHERE teacher_id = ?";
+        try (
+                Connection conn = databaseHandler.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)
+        ) {
+            ps.setString(1, teacherId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public boolean delete(String id) {
         String sql = "DELETE FROM assignments WHERE id = ?";
         try (
@@ -163,6 +176,18 @@ public class AssignmentRepository implements IRepository {
         ) {
             ps.setString(1, id);
             return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    
+    public void deleteAll() {
+        String sql = "DELETE FROM assignments";
+        try (
+                Connection conn = databaseHandler.getConnection();
+                Statement stmt = conn.createStatement()
+        ) {
+            stmt.executeUpdate(sql);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

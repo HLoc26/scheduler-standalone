@@ -3,13 +3,16 @@ package application.controllers;
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
 import application.views.TimeGridSelector;
+import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 
 import java.util.ArrayList;
@@ -73,9 +76,11 @@ public class ClassConfigController {
             updateToggleStyles();
 
             if (currentEditingGrade != null) {
+                System.out.println("here");
                 ESession session = newVal == btnMorning ? ESession.MORNING : ESession.AFTERNOON;
                 Session dbSession = repo.getSessionRepository().getByName(session);
                 currentEditingGrade.setSession(dbSession);
+                repo.getGradeRepository().save(currentEditingGrade);
                 // Re-create time grid when session changes, and reset matrix
                 updateTimeGridForGrade(currentEditingGrade, true);
             }
@@ -84,15 +89,15 @@ public class ClassConfigController {
         // Set default styles
         updateToggleStyles();
 
-        // Setup Accordion
-        loadAccordionData();
-
         // Set up the table
         setUpTableColumns();
 
         // Initially hide buttons and clear grid
         setButtonVisibility(false, false, false);
         timeGridContainer.getChildren().clear();
+
+        // Setup Accordion
+        loadAccordionData();
     }
 
     private void setButtonVisibility(boolean addClass, boolean deleteClass, boolean deleteGrade) {
@@ -248,6 +253,7 @@ public class ClassConfigController {
 
     private void loadAccordionData() {
         List<Grade> grades = repo.getGradeRepository().getAll();
+        boolean selected = false;
         gradeAccordion.getPanes().clear();
         for (Grade grade : grades) {
             TitledPane pane = new TitledPane();
@@ -255,8 +261,8 @@ public class ClassConfigController {
 
             ListView<NavItem> list = new ListView<>();
             List<NavItem> items = new ArrayList<>();
-
-            items.add(new NavItem("Cấu hình chung " + grade.getName(), grade, true));
+            NavItem gradeItem = new NavItem("Cấu hình chung " + grade.getName(), grade, true);
+            items.add(gradeItem);
 
             List<Clazz> classes = repo.getClassRepository().getByGrade(grade.getId());
             for (Clazz c : classes) {
@@ -300,6 +306,11 @@ public class ClassConfigController {
             });
             pane.setContent(list);
             gradeAccordion.getPanes().add(pane);
+
+            if (!selected) {
+                selected = true;
+                Platform.runLater(() -> list.getSelectionModel().select(gradeItem));
+            }
         }
         // Auto open first selection
         if (!gradeAccordion.getPanes().isEmpty()) {
@@ -507,29 +518,146 @@ public class ClassConfigController {
 
     @FXML
     public void handleAddGrade() {
-        TextInputDialog dialog = new TextInputDialog();
+        Dialog<GradeCreationResult> dialog = new Dialog<>();
         dialog.setTitle("Thêm Khối mới");
-        dialog.setHeaderText("Tạo Khối lớp mới");
-        dialog.setContentText("Nhập tên Khối (ví dụ: Khối 10):");
+        dialog.setHeaderText("Cấu hình Khối lớp và Lớp học");
 
-        Optional<String> result = dialog.showAndWait();
-        result.ifPresent(gradeName -> {
-            if (gradeName.trim().isEmpty()) return;
+        ButtonType addButtonType = new ButtonType("Thêm", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(addButtonType, ButtonType.CANCEL);
 
-            // Create new grade
-            // Assuming level is parsed from name or just set to 0 for now as it might need more complex logic
-            int level = 0;
-            try {
-                String numberOnly = gradeName.replaceAll("[^0-9]", "");
-                if (!numberOnly.isEmpty()) {
-                    level = Integer.parseInt(numberOnly);
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 20, 10, 10));
+
+        // Level selection
+        ComboBox<Integer> levelComboBox = new ComboBox<>();
+        levelComboBox.getItems().addAll(6, 7, 8, 9, 10, 11, 12);
+        levelComboBox.setValue(10);
+
+        // Class count
+        Spinner<Integer> classCountSpinner = new Spinner<>(1, 20, 5);
+        classCountSpinner.setEditable(true);
+
+        // Naming convention type
+        ComboBox<String> namingTypeComboBox = new ComboBox<>();
+        namingTypeComboBox.getItems().addAll("Số (1, 2, 3...)", "Chữ cái (A, B, C...)");
+        namingTypeComboBox.setValue("Số (1, 2, 3...)");
+
+        // Delimiter
+        TextField delimiterField = new TextField("A");
+        delimiterField.setPromptText("Ví dụ: A, /, -");
+
+        // Preview Label
+        Label previewLabel = new Label("Xem trước: 10A1, 10A2, 10A3, 10A4, 10A5");
+        previewLabel.setStyle("-fx-font-style: italic; -fx-text-fill: grey;");
+
+        // Update preview logic
+        Runnable updatePreview = () -> {
+            Integer level = levelComboBox.getValue();
+            int count = classCountSpinner.getValue();
+            String type = namingTypeComboBox.getValue();
+            String delimiter = delimiterField.getText();
+
+            if (level == null) return;
+
+            StringBuilder sb = new StringBuilder("Xem trước: ");
+            for (int i = 1; i <= Math.min(count, 3); i++) {
+                if (i > 1) sb.append(", ");
+                if (type.startsWith("Số")) {
+                    sb.append(level).append(delimiter).append(i);
+                } else {
+                    // Chữ cái: 6A, 6B... (delimiter ignored usually, but let's respect if user wants 6-A)
+                    char suffix = (char) ('A' + i - 1);
+                    // If delimiter is empty, default behavior for letters is just append
+                    // If delimiter is not empty, append delimiter then letter
+                    if (delimiter.isEmpty()) {
+                        sb.append(level).append(suffix);
+                    } else {
+                        sb.append(level).append(delimiter).append(suffix);
+                    }
                 }
-            } catch (Exception e) {
-                // ignore
+            }
+            if (count > 3) sb.append(", ...");
+            previewLabel.setText(sb.toString());
+        };
+
+        // Add listeners
+        levelComboBox.valueProperty().addListener((obs, oldVal, newVal) -> updatePreview.run());
+        classCountSpinner.valueProperty().addListener((obs, oldVal, newVal) -> updatePreview.run());
+        namingTypeComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal.startsWith("Chữ cái")) {
+                delimiterField.setText(""); // Default empty for letters
+            } else {
+                delimiterField.setText("A"); // Default A for numbers (e.g. 10A1)
+            }
+            updatePreview.run();
+        });
+        delimiterField.textProperty().addListener((obs, oldVal, newVal) -> updatePreview.run());
+
+        grid.add(new Label("Chọn Khối:"), 0, 0);
+        grid.add(levelComboBox, 1, 0);
+
+        grid.add(new Label("Số lượng lớp:"), 0, 1);
+        grid.add(classCountSpinner, 1, 1);
+
+        grid.add(new Label("Kiểu đặt tên:"), 0, 2);
+        grid.add(namingTypeComboBox, 1, 2);
+
+        grid.add(new Label("Ký tự ngăn cách:"), 0, 3);
+        grid.add(delimiterField, 1, 3);
+
+        grid.add(previewLabel, 1, 4);
+
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == addButtonType) {
+                return new GradeCreationResult(
+                        levelComboBox.getValue(),
+                        classCountSpinner.getValue(),
+                        namingTypeComboBox.getValue(),
+                        delimiterField.getText()
+                );
+            }
+            return null;
+        });
+
+        Optional<GradeCreationResult> result = dialog.showAndWait();
+        result.ifPresent(data -> {
+            // Check if grade already exists
+            Grade existingGrade = repo.getGradeRepository().getByLevel(data.level);
+            if (existingGrade != null) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Lỗi");
+                alert.setHeaderText(null);
+                alert.setContentText("Khối " + data.level + " đã tồn tại!");
+                alert.showAndWait();
+                return;
             }
 
-            Grade newGrade = new Grade(java.util.UUID.randomUUID().toString(), gradeName, level);
+            String gradeName = "Khối " + data.level;
+
+            Session defaultSession = repo.getSessionRepository().getByName(ESession.MORNING);
+            Grade newGrade = new Grade(java.util.UUID.randomUUID().toString(), gradeName, data.level, defaultSession);
             repo.getGradeRepository().save(newGrade);
+
+            // Create classes
+            for (int i = 1; i <= data.count; i++) {
+                String className;
+                if (data.namingType.startsWith("Số")) {
+                    className = data.level + data.delimiter + i;
+                } else {
+                    char suffix = (char) ('A' + i - 1);
+                    if (data.delimiter.isEmpty()) {
+                        className = data.level + "" + suffix;
+                    } else {
+                        className = data.level + data.delimiter + suffix;
+                    }
+                }
+                Clazz newClass = new Clazz(java.util.UUID.randomUUID().toString(), className, newGrade.getId());
+                repo.getClassRepository().save(newClass);
+            }
 
             // Reload accordion
             loadAccordionData();
@@ -538,7 +666,7 @@ public class ClassConfigController {
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Thành công");
             alert.setHeaderText(null);
-            alert.setContentText("Đã thêm " + gradeName);
+            alert.setContentText("Đã thêm " + gradeName + " và " + data.count + " lớp học.");
             alert.showAndWait();
         });
     }
@@ -641,5 +769,8 @@ public class ClassConfigController {
         public String toString() {
             return label;
         }
+    }
+
+    private record GradeCreationResult(int level, int count, String namingType, String delimiter) {
     }
 }
