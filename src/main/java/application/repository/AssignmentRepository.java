@@ -180,6 +180,18 @@ public class AssignmentRepository implements IRepository {
             throw new RuntimeException(e);
         }
     }
+    
+    public void deleteAll() {
+        String sql = "DELETE FROM assignments";
+        try (
+                Connection conn = databaseHandler.getConnection();
+                Statement stmt = conn.createStatement()
+        ) {
+            stmt.executeUpdate(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public List<Assignment> getAll() {
         String sql = "SELECT * FROM assignments";

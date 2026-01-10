@@ -67,8 +67,13 @@
     </center>
 
     <bottom>
-        <HBox spacing="20" style="-fx-padding: 10;">
+        <HBox spacing="20" style="-fx-padding: 10;" alignment="CENTER_LEFT">
             <Label text="* Click vào ô đỏ để phân công giáo viên." textFill="#64748b" style="-fx-font-style: italic;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button text="XÓA TẤT CẢ"
+                    onAction="#handleDeleteAll"
+                    style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold;">
+            </Button>
         </HBox>
     </bottom>
 </BorderPane>

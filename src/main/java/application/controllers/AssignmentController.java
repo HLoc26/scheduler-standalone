@@ -370,7 +370,7 @@ public class AssignmentController {
 
                 @Override
                 public Teacher fromString(String s) {
-                    return null;
+                    return null; // Not needed
                 }
             });
         }
@@ -411,6 +411,56 @@ public class AssignmentController {
         } catch (Exception e) {
             e.printStackTrace();
             showAlert(Alert.AlertType.ERROR, "Error", "Save failed: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    public void handleDeleteAll() {
+        // Level 1 Warning
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("CẢNH BÁO NGUY HIỂM");
+        alert.setHeaderText("XOÁ TẤT CẢ PHÂN CÔNG?");
+        alert.setContentText("Bạn có chắc chắn muốn xoá tất cả phân công giảng dạy không? Hành động này sẽ xoá toàn bộ dữ liệu phân công hiện tại.");
+
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            // Level 2 Warning: Require typing "Delete"
+            TextInputDialog confirmDialog = new TextInputDialog();
+            confirmDialog.setTitle("Xác nhận lần cuối");
+            confirmDialog.setHeaderText("Hành động này không thể hoàn tác");
+            confirmDialog.setContentText("Vui lòng nhập chính xác từ 'Delete' để xác nhận xoá:");
+
+            Optional<String> confirmResult = confirmDialog.showAndWait();
+            if (confirmResult.isPresent() && confirmResult.get().equals("Delete")) {
+                try {
+                    // Perform deletion of all assignments
+                    repo.getAssignmentRepository().deleteAll();
+                    
+                    // Clear local caches
+                    pendingChanges.clear();
+                    assignmentDbCache.clear();
+                    
+                    // Rebuild grid
+                    buildGrid();
+                    updateCancelButtonVisibility();
+                    
+                    // Show success message
+                    Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                    successAlert.setTitle("Thành công");
+                    successAlert.setHeaderText(null);
+                    successAlert.setContentText("Đã xoá tất cả phân công thành công.");
+                    successAlert.showAndWait();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    showAlert(Alert.AlertType.ERROR, "Lỗi", "Không thể xoá dữ liệu: " + e.getMessage());
+                }
+            } else {
+                Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                errorAlert.setTitle("Huỷ bỏ");
+                errorAlert.setHeaderText(null);
+                errorAlert.setContentText("Mã xác nhận không đúng. Đã huỷ thao tác xoá.");
+                errorAlert.showAndWait();
+            }
         }
     }
 
