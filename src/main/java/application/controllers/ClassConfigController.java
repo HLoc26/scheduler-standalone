@@ -3,6 +3,7 @@ package application.controllers;
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
 import application.views.TimeGridSelector;
+import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
@@ -75,9 +76,11 @@ public class ClassConfigController {
             updateToggleStyles();
 
             if (currentEditingGrade != null) {
+                System.out.println("here");
                 ESession session = newVal == btnMorning ? ESession.MORNING : ESession.AFTERNOON;
                 Session dbSession = repo.getSessionRepository().getByName(session);
                 currentEditingGrade.setSession(dbSession);
+                repo.getGradeRepository().save(currentEditingGrade);
                 // Re-create time grid when session changes, and reset matrix
                 updateTimeGridForGrade(currentEditingGrade, true);
             }
@@ -86,15 +89,15 @@ public class ClassConfigController {
         // Set default styles
         updateToggleStyles();
 
-        // Setup Accordion
-        loadAccordionData();
-
         // Set up the table
         setUpTableColumns();
 
         // Initially hide buttons and clear grid
         setButtonVisibility(false, false, false);
         timeGridContainer.getChildren().clear();
+
+        // Setup Accordion
+        loadAccordionData();
     }
 
     private void setButtonVisibility(boolean addClass, boolean deleteClass, boolean deleteGrade) {
@@ -250,6 +253,7 @@ public class ClassConfigController {
 
     private void loadAccordionData() {
         List<Grade> grades = repo.getGradeRepository().getAll();
+        boolean selected = false;
         gradeAccordion.getPanes().clear();
         for (Grade grade : grades) {
             TitledPane pane = new TitledPane();
@@ -257,8 +261,8 @@ public class ClassConfigController {
 
             ListView<NavItem> list = new ListView<>();
             List<NavItem> items = new ArrayList<>();
-
-            items.add(new NavItem("Cấu hình chung " + grade.getName(), grade, true));
+            NavItem gradeItem = new NavItem("Cấu hình chung " + grade.getName(), grade, true);
+            items.add(gradeItem);
 
             List<Clazz> classes = repo.getClassRepository().getByGrade(grade.getId());
             for (Clazz c : classes) {
@@ -302,6 +306,11 @@ public class ClassConfigController {
             });
             pane.setContent(list);
             gradeAccordion.getPanes().add(pane);
+
+            if (!selected) {
+                selected = true;
+                Platform.runLater(() -> list.getSelectionModel().select(gradeItem));
+            }
         }
         // Auto open first selection
         if (!gradeAccordion.getPanes().isEmpty()) {
