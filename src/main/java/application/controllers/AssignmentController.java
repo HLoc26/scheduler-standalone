@@ -30,6 +30,8 @@ public class AssignmentController {
     private ToggleButton tglQuickMode;
     @FXML
     private ComboBox<Teacher> cbQuickTeacher;
+    @FXML
+    private Button btnCancelChanges;
     // --- Data Cache (Loaded from DB) ---
     private List<Subject> subjects;
     private List<Clazz> classes;
@@ -46,6 +48,7 @@ public class AssignmentController {
         loadDataFromDb();
         setupQuickModeControls();
         buildGrid();
+        updateCancelButtonVisibility();
     }
 
     /**
@@ -99,11 +102,36 @@ public class AssignmentController {
             tglQuickMode.setText("BẬT");
             tglQuickMode.setStyle("-fx-base: #22c55e; -fx-text-fill: white; -fx-font-weight: bold;"); // Green
             cbQuickTeacher.setDisable(false);
+            updateCancelButtonVisibility();
         } else {
             tglQuickMode.setText("TẮT");
             tglQuickMode.setStyle("-fx-base: #cbd5e1; -fx-text-fill: black; -fx-font-weight: bold;"); // Gray
             cbQuickTeacher.setDisable(true);
             cbQuickTeacher.getSelectionModel().clearSelection();
+            btnCancelChanges.setVisible(false);
+        }
+    }
+
+    private void updateCancelButtonVisibility() {
+        if (tglQuickMode.isSelected() && !pendingChanges.isEmpty()) {
+            btnCancelChanges.setVisible(true);
+        } else {
+            btnCancelChanges.setVisible(false);
+        }
+    }
+
+    @FXML
+    public void handleCancelChanges() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Xác nhận hủy");
+        alert.setHeaderText("Hủy bỏ tất cả thay đổi?");
+        alert.setContentText("Bạn có chắc chắn muốn hủy bỏ tất cả các thay đổi chưa lưu không?");
+
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            pendingChanges.clear();
+            buildGrid();
+            updateCancelButtonVisibility();
         }
     }
 
@@ -262,6 +290,23 @@ public class AssignmentController {
     private void handleLocalUpdate(VBox cell, Label label, Subject s, Clazz c, Teacher t) {
         String key = genKey(s.getId(), c.getId());
 
+        // Check if we are toggling off the change (clicking again with same teacher)
+        if (pendingChanges.containsKey(key)) {
+            Assignment pending = pendingChanges.get(key);
+            if (pending.getTeacherId().equals(t.getId())) {
+                // Revert change
+                pendingChanges.remove(key);
+                
+                // Restore original state
+                Assignment original = assignmentDbCache.get(key);
+                Teacher originalTeacher = (original != null) ? findTeacherById(original.getTeacherId()) : null;
+                
+                styleCell(cell, label, originalTeacher, false);
+                updateCancelButtonVisibility();
+                return;
+            }
+        }
+
         // Create new Assignment Object
         Assignment assignment = new Assignment();
         // Check if we are updating an existing DB record to keep the ID, else gen new UUID
@@ -281,6 +326,7 @@ public class AssignmentController {
 
         // Update UI Visuals immediately
         styleCell(cell, label, t, true);
+        updateCancelButtonVisibility();
     }
 
     /**
@@ -358,6 +404,7 @@ public class AssignmentController {
             // 4. Reload from DB to verify and reset UI
             loadDataFromDb();
             buildGrid();
+            updateCancelButtonVisibility();
 
             showAlert(Alert.AlertType.INFORMATION, "Success", "Saved " + batchList.size() + " assignments successfully!");
 

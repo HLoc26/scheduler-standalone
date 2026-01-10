@@ -42,6 +42,10 @@
 
                 <ComboBox fx:id="cbQuickTeacher" promptText="Chọn Giáo viên mẫu..."
                           prefWidth="200.0" disable="true"/>
+
+                <Button fx:id="btnCancelChanges" text="Hủy thay đổi" onAction="#handleCancelChanges"
+                        visible="false" managed="${btnCancelChanges.visible}"
+                        style="-fx-background-color: #e74c3c; -fx-text-fill: white;"/>
             </HBox>
 
             <Button text="LƯU THAY ĐỔI"
