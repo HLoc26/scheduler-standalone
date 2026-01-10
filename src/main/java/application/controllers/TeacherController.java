@@ -3,6 +3,7 @@ package application.controllers;
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
 import application.views.TimeGridSelector;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -31,6 +32,8 @@ public class TeacherController {
 
     private Teacher selectedTeacher = null;
     // --- UI Controls ---
+    @FXML
+    public SplitPane root;
     @FXML
     private ListView<Teacher> teacherListView;
     @FXML
@@ -77,6 +80,7 @@ public class TeacherController {
         setupButtons();
 
         loadData(); // Will be replaced by load from DB
+        Platform.runLater(() -> root.setDividerPosition(0, 0.2));
     }
 
     private void setupTimeGrid() {
@@ -89,6 +93,7 @@ public class TeacherController {
         teacherListView.getSelectionModel().selectedItemProperty().addListener(
                 (obs, oldVal, newVal) -> showTeacherDetails(newVal)
         );
+        Platform.runLater(() -> teacherListView.getSelectionModel().select(0));
     }
 
     private void setupButtons() {
