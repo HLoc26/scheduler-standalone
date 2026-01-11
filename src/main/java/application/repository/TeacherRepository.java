@@ -87,6 +87,19 @@ public class TeacherRepository implements IRepository {
         }
     }
 
+    public boolean delete(String id) {
+        String sql = "DELETE FROM teachers WHERE id = ?";
+        try (
+                Connection conn = databaseHandler.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)
+        ) {
+            stmt.setString(1, id);
+            return stmt.executeUpdate() == 1;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public Teacher getById(String id) {
         String sql = "SELECT * FROM teachers WHERE id = ?";
         try (
