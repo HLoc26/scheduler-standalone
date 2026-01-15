@@ -6,16 +6,23 @@ import application.models.ScheduleItem;
 import javafx.collections.FXCollections;
 import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
+import application.utils.ExcelExporter;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 
+import java.io.File;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public class ScheduleController {
 
@@ -331,5 +338,67 @@ public class ScheduleController {
 
     public void setOnReGenerateRequest(Runnable onReGenerateRequest) {
         this.onReGenerateRequest = onReGenerateRequest;
+    }
+
+    @FXML
+    public void handleExportExcel() {
+        // 1. Ask for Start Date
+        Dialog<LocalDate> dialog = new Dialog<>();
+        dialog.setTitle("Chọn ngày bắt đầu");
+        dialog.setHeaderText("Vui lòng chọn ngày bắt đầu áp dụng thời khóa biểu");
+
+        ButtonType loginButtonType = new ButtonType("Tiếp tục", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(loginButtonType, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new javafx.geometry.Insets(20, 150, 10, 10));
+
+        DatePicker datePicker = new DatePicker(LocalDate.now());
+        grid.add(new Label("Ngày bắt đầu:"), 0, 0);
+        grid.add(datePicker, 1, 0);
+
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == loginButtonType) {
+                return datePicker.getValue();
+            }
+            return null;
+        });
+
+        Optional<LocalDate> result = dialog.showAndWait();
+
+        result.ifPresent(localDate -> {
+            // 2. Choose File
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Lưu file Excel");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Excel Files", "*.xlsx"));
+            fileChooser.setInitialFileName("ThoiKhoaBieu.xlsx");
+
+            File file = fileChooser.showSaveDialog(scheduleGrid.getScene().getWindow());
+            if (file != null) {
+                try {
+                    ExcelExporter exporter = new ExcelExporter(repo);
+                    exporter.prepareData();
+                    Date date = Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+                    exporter.export(file.getAbsolutePath(), date);
+
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("Thành công");
+                    alert.setHeaderText(null);
+                    alert.setContentText("Xuất file Excel thành công!");
+                    alert.showAndWait();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Lỗi");
+                    alert.setHeaderText("Không thể xuất file");
+                    alert.setContentText(e.getMessage());
+                    alert.showAndWait();
+                }
+            }
+        });
     }
 }
