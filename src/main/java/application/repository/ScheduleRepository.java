@@ -2,6 +2,7 @@ package application.repository;
 
 import application.models.ESession;
 import application.models.EWeekDay;
+import application.models.ScheduleItem;
 import engine.v2.definitions.Slot;
 import engine.v2.definitions.Variable;
 
@@ -75,27 +76,6 @@ public class ScheduleRepository implements IRepository {
             stmt.executeUpdate(sql);
         } catch (SQLException e) {
             throw new RuntimeException(e);
-        }
-    }
-
-    // Helper class for UI
-    public static class ScheduleItem {
-        public String assignmentId;
-        public String subjectId;
-        public String classId;
-        public String teacherId;
-        public EWeekDay day;
-        public ESession session;
-        public int period;
-
-        public ScheduleItem(String assignmentId, String subjectId, String classId, String teacherId, EWeekDay day, ESession session, int period) {
-            this.assignmentId = assignmentId;
-            this.subjectId = subjectId;
-            this.classId = classId;
-            this.teacherId = teacherId;
-            this.day = day;
-            this.session = session;
-            this.period = period;
         }
     }
 

@@ -2,7 +2,7 @@ package application.controllers;
 
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
-import application.repository.ScheduleRepository.ScheduleItem;
+import application.models.ScheduleItem;
 import javafx.collections.FXCollections;
 import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
@@ -209,14 +209,14 @@ public class ScheduleController {
         }
 
         // 4. Sort by day, then by period
-        lessons.sort(Comparator.comparing((ScheduleItem i) -> i.day)
-                .thenComparingInt(i -> i.period));
+        lessons.sort(Comparator.comparing(ScheduleItem::day)
+                .thenComparingInt(ScheduleItem::period));
 
         // 5. Draw each lesson
         for (int i = 0; i < lessons.size(); i++) {
             ScheduleItem item = lessons.get(i);
 
-            Clazz c = repo.getClassRepository().getById(item.classId);
+            Clazz c = repo.getClassRepository().getById(item.classId());
             String className = (c != null) ? c.getClassName() : "Unknown";
 
             ESession session = ESession.MORNING; // Default
@@ -226,16 +226,16 @@ public class ScheduleController {
                     session = g.getSession().getSessionName();
                 }
             }
-            int dayInt = item.day.ordinal() + 2;
+            int dayInt = item.day().ordinal() + 2;
 
             // Get Subject Name
-            String subjectName = item.subjectId;
-            Subject s = repo.getSubjectRepository().getById(item.subjectId);
+            String subjectName = item.subjectId();
+            Subject s = repo.getSubjectRepository().getById(item.subjectId());
             if (s != null) subjectName = s.getName();
 
             // Get Teacher Name
             String teacherName = "";
-            Teacher t = repo.getTeacherRepository().getById(item.teacherId);
+            Teacher t = repo.getTeacherRepository().getById(item.teacherId());
             if (t != null) teacherName = t.getName();
 
             // Detect double period (consecutive)
@@ -249,7 +249,7 @@ public class ScheduleController {
                 if (isConsecutive(item, next)) isDouble = true;
             }
 
-            drawLessonCell(dayInt, item.period, subjectName, teacherName, className, isDouble, session);
+            drawLessonCell(dayInt, item.period(), subjectName, teacherName, className, isDouble, session);
         }
     }
 
@@ -316,10 +316,10 @@ public class ScheduleController {
 
     // Helper to check if two items are consecutive
     private boolean isConsecutive(ScheduleItem a, ScheduleItem b) {
-        return a.day == b.day
-                && Math.abs(a.period - b.period) == 1
-                && Objects.equals(a.subjectId, b.subjectId)
-                && Objects.equals(a.classId, b.classId);
+        return a.day() == b.day()
+                && Math.abs(a.period() - b.period()) == 1
+                && Objects.equals(a.subjectId(), b.subjectId())
+                && Objects.equals(a.classId(), b.classId());
     }
 
     @FXML
