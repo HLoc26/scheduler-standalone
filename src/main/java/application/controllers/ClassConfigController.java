@@ -76,7 +76,6 @@ public class ClassConfigController {
             updateToggleStyles();
 
             if (currentEditingGrade != null) {
-                System.out.println("here");
                 ESession session = newVal == btnMorning ? ESession.MORNING : ESession.AFTERNOON;
                 Session dbSession = repo.getSessionRepository().getByName(session);
                 currentEditingGrade.setSession(dbSession);
