@@ -29,11 +29,10 @@ public class TeacherController {
     private final ObservableList<Assignment> currentAssignments = FXCollections.observableArrayList();
     // List of assignments to be deleted
     private final List<Assignment> assignmentsToDelete = new ArrayList<>();
-
-    private Teacher selectedTeacher = null;
     // --- UI Controls ---
     @FXML
     public SplitPane root;
+    private Teacher selectedTeacher = null;
     @FXML
     private ListView<Teacher> teacherListView;
     @FXML
@@ -313,7 +312,7 @@ public class TeacherController {
                         repositoryOrchestrator.getAssignmentRepository().save(a);
                     } catch (Exception e) {
                         // Ignore if already exists
-                         System.out.println("Assignment already exists: " + a.getId());
+                        System.out.println("Assignment already exists: " + a.getId());
                     }
                 }
 

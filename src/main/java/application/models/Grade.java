@@ -21,7 +21,7 @@ public class Grade {
     public Grade(String id, String name, int level, Session session) {
         this(id, name, level, session, new ArrayList<>());
     }
-    
+
     public Grade(String id, String name, int level) {
         this(id, name, level, null);
     }

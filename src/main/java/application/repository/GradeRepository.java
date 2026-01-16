@@ -61,7 +61,7 @@ public class GradeRepository implements IRepository {
             throw new RuntimeException(e);
         }
     }
-    
+
     public Grade getById(String id) {
         String sql = "SELECT * FROM grades WHERE id = ?";
         try (
@@ -142,7 +142,7 @@ public class GradeRepository implements IRepository {
         }
     }
 
-    public List<Grade> getBySession(ESession session){
+    public List<Grade> getBySession(ESession session) {
         String sql = "SELECT * FROM grades WHERE session = ?";
         List<Grade> grades = new ArrayList<>();
         try (
@@ -151,7 +151,7 @@ public class GradeRepository implements IRepository {
         ) {
             ps.setString(1, session.toString());
             ResultSet rs = ps.executeQuery();
-            while(rs.next()){
+            while (rs.next()) {
                 grades.add(new Grade(
                         rs.getString("id"),
                         rs.getString("name"),
@@ -159,12 +159,12 @@ public class GradeRepository implements IRepository {
                 ));
             }
             return grades;
-        } catch (SQLException e){
+        } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public int getPeriodsPerWeek(String gradeId){
+    public int getPeriodsPerWeek(String gradeId) {
         String sql = "SELECT g.id, SUM(c.periods_per_week) AS total_periods FROM grades g JOIN curriculums c ON g.id = c.grade_id WHERE g.id = ? GROUP BY g.id";
         try (
                 Connection conn = databaseHandler.getConnection();

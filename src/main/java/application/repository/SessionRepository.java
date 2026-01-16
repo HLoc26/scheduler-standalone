@@ -52,7 +52,7 @@ public class SessionRepository implements IRepository {
             throw new RuntimeException(e);
         }
     }
-    
+
     public Session getByName(ESession sessionName) {
         String sql = "SELECT * FROM sessions WHERE sessionName = ?";
         try (

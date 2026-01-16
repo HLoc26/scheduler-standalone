@@ -2,11 +2,10 @@ package application.controllers;
 
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
-import application.models.ScheduleItem;
+import application.utils.ExcelExporter;
 import javafx.collections.FXCollections;
 import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
-import application.utils.ExcelExporter;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
@@ -18,11 +17,7 @@ import javafx.stage.FileChooser;
 import java.io.File;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 public class ScheduleController {
 

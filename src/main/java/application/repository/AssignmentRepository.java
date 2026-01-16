@@ -180,7 +180,7 @@ public class AssignmentRepository implements IRepository {
             throw new RuntimeException(e);
         }
     }
-    
+
     public void deleteAll() {
         String sql = "DELETE FROM assignments";
         try (

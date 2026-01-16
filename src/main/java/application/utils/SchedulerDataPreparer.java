@@ -4,7 +4,10 @@ import application.models.*;
 import application.repository.RepositoryOrchestrator;
 import scheduler.common.models.TaskData;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class SchedulerDataPreparer {
 
@@ -77,7 +80,7 @@ public class SchedulerDataPreparer {
 
             // Empty matrix for class specific busy (not yet implemented in DB)
             boolean[][] classSpecificBusyMatrix = new boolean[EWeekDay.values().length][10];
-            
+
             // Merge Session Busy Matrix into Class Busy Matrix
             boolean[][] finalClassBusyMatrix = new boolean[EWeekDay.values().length][10];
             for (int d = 0; d < EWeekDay.values().length; d++) {
@@ -89,7 +92,7 @@ public class SchedulerDataPreparer {
             // Clone teacher busy matrix
             boolean[][] originalTeacherMatrix = teacher.getBusyMatrix();
             boolean[][] teacherMatrixClone = new boolean[originalTeacherMatrix.length][];
-            for(int i = 0; i < originalTeacherMatrix.length; i++) {
+            for (int i = 0; i < originalTeacherMatrix.length; i++) {
                 // Clone every single row
                 teacherMatrixClone[i] = originalTeacherMatrix[i].clone();
             }

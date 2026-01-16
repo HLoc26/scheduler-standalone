@@ -76,46 +76,46 @@
         </top>
         <center>
             <ScrollPane fitToWidth="true" style="-fx-background-color: transparent; -fx-background: transparent;">
-            <VBox spacing="10.0">
-                <padding>
-                    <Insets bottom="10.0" left="20.0" right="20.0"/>
-                </padding>
-                <HBox alignment="CENTER_LEFT" spacing="10.0">
-                    <Label style="-fx-font-weight: bold; -fx-text-fill: #7f8c8d;"
-                           text="Phân phối chương trình chi tiết:"/>
-                    <Region HBox.hgrow="ALWAYS"/>
-                    <Button fx:id="btnAddClass" text="Thêm lớp"
-                            style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;"
-                            onAction="#handleAddClass"/>
-                    <Button fx:id="btnDeleteGrade" text="Xoá Khối"
-                            style="-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-margin-left: 10px;"
-                            onAction="#handleDeleteGrade"/>
-                    <Button fx:id="btnDeleteClass" text="Xoá lớp"
-                            style="-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-margin-left: 10px;"
-                            onAction="#handleDeleteClass"/>
-                </HBox>
-                <TableView fx:id="curriculumTable" editable="true" VBox.vgrow="ALWAYS">
-                    <columns>
-                        <TableColumn fx:id="colSubject" prefWidth="250.0" text="Môn học"/>
+                <VBox spacing="10.0">
+                    <padding>
+                        <Insets bottom="10.0" left="20.0" right="20.0"/>
+                    </padding>
+                    <HBox alignment="CENTER_LEFT" spacing="10.0">
+                        <Label style="-fx-font-weight: bold; -fx-text-fill: #7f8c8d;"
+                               text="Phân phối chương trình chi tiết:"/>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <Button fx:id="btnAddClass" text="Thêm lớp"
+                                style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold;"
+                                onAction="#handleAddClass"/>
+                        <Button fx:id="btnDeleteGrade" text="Xoá Khối"
+                                style="-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-margin-left: 10px;"
+                                onAction="#handleDeleteGrade"/>
+                        <Button fx:id="btnDeleteClass" text="Xoá lớp"
+                                style="-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-margin-left: 10px;"
+                                onAction="#handleDeleteClass"/>
+                    </HBox>
+                    <TableView fx:id="curriculumTable" editable="true" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="colSubject" prefWidth="250.0" text="Môn học"/>
 
-                        <TableColumn fx:id="colPeriods" prefWidth="150.0" style="-fx-alignment: CENTER;"
-                                     text="Số tiết / tuần"/>
+                            <TableColumn fx:id="colPeriods" prefWidth="150.0" style="-fx-alignment: CENTER;"
+                                         text="Số tiết / tuần"/>
 
-                        <TableColumn fx:id="colDouble" prefWidth="120.0" style="-fx-alignment: CENTER;"
-                                     text="Học liền (Kép)"/>
+                            <TableColumn fx:id="colDouble" prefWidth="120.0" style="-fx-alignment: CENTER;"
+                                         text="Học liền (Kép)"/>
 
-                        <TableColumn fx:id="colTeacher" prefWidth="200.0" text="Giáo viên phân công"/>
-                    </columns>
-                    <columnResizePolicy>
-                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
-                    </columnResizePolicy>
-                </TableView>
-                <Separator/>
+                            <TableColumn fx:id="colTeacher" prefWidth="200.0" text="Giáo viên phân công"/>
+                        </columns>
+                        <columnResizePolicy>
+                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                        </columnResizePolicy>
+                    </TableView>
+                    <Separator/>
 
-                <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"
-                       text="3. Thời gian bận"/>
-                <StackPane fx:id="timeGridContainer" alignment="CENTER_LEFT"/>
-            </VBox>
+                    <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"
+                           text="3. Thời gian bận"/>
+                    <StackPane fx:id="timeGridContainer" alignment="CENTER_LEFT"/>
+                </VBox>
             </ScrollPane>
         </center>
         <bottom>

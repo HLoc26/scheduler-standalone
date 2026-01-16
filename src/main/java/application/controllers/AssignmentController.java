@@ -296,11 +296,11 @@ public class AssignmentController {
             if (pending.getTeacherId().equals(t.getId())) {
                 // Revert change
                 pendingChanges.remove(key);
-                
+
                 // Restore original state
                 Assignment original = assignmentDbCache.get(key);
                 Teacher originalTeacher = (original != null) ? findTeacherById(original.getTeacherId()) : null;
-                
+
                 styleCell(cell, label, originalTeacher, false);
                 updateCancelButtonVisibility();
                 return;
@@ -435,15 +435,15 @@ public class AssignmentController {
                 try {
                     // Perform deletion of all assignments
                     repo.getAssignmentRepository().deleteAll();
-                    
+
                     // Clear local caches
                     pendingChanges.clear();
                     assignmentDbCache.clear();
-                    
+
                     // Rebuild grid
                     buildGrid();
                     updateCancelButtonVisibility();
-                    
+
                     // Show success message
                     Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
                     successAlert.setTitle("Thành công");

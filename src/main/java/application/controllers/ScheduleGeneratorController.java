@@ -1,13 +1,11 @@
 package application.controllers;
 
-import application.models.*;
+import application.models.Clazz;
+import application.models.Curriculum;
+import application.models.Teacher;
 import application.repository.RepositoryOrchestrator;
 import application.services.SchedulerEngineService;
 import application.utils.SchedulerDataPreparer;
-import scheduler.common.models.Slot;
-import scheduler.common.models.TaskData;
-import scheduler.common.models.Variable;
-
 import javafx.concurrent.Task;
 import javafx.concurrent.Worker;
 import javafx.fxml.FXML;
@@ -15,11 +13,12 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
+import scheduler.common.models.Slot;
+import scheduler.common.models.TaskData;
+import scheduler.common.models.Variable;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class ScheduleGeneratorController {
 

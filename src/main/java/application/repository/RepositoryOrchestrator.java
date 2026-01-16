@@ -33,7 +33,7 @@ public class RepositoryOrchestrator {
         // Initialize session data
         for (ESession session : ESession.values()) {
             Session sessionInDb = sessionRepository.getByName(session);
-            if(sessionInDb == null) {
+            if (sessionInDb == null) {
                 Session s = new Session(session, new boolean[6][5]);
                 sessionRepository.save(s);
             }

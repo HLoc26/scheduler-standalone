@@ -3,8 +3,8 @@ package application.repository;
 import application.models.ESession;
 import application.models.EWeekDay;
 import application.models.ScheduleItem;
-import scheduler.common.models.Variable;
 import scheduler.common.models.Slot;
+import scheduler.common.models.Variable;
 
 import java.sql.*;
 import java.util.ArrayList;

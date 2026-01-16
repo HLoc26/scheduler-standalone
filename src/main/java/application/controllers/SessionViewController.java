@@ -16,23 +16,19 @@ import java.util.List;
 
 public class SessionViewController {
 
+    private final RepositoryOrchestrator repo;
     @FXML
     public Button btnSave;
-
     @FXML
     private FlowPane afternoonChipContainer;
     @FXML
     private FlowPane morningChipContainer;
-
     @FXML
     private StackPane morningGridContainer;
     private TimeGridSelector morningGridSelector;
-
     @FXML
     private StackPane afternoonGridContainer;
     private TimeGridSelector afternoonGridSelector;
-
-    private final RepositoryOrchestrator repo;
 
     public SessionViewController(RepositoryOrchestrator repo) {
         this.repo = repo;

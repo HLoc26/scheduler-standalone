@@ -2,16 +2,13 @@ package application.controllers;
 
 import application.repository.RepositoryOrchestrator;
 import application.services.SchedulerEngineService;
-import engine.SchedulerEngineFactory;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
-import javafx.stage.Stage;
 
 import java.io.File;
 import java.io.IOException;
@@ -109,7 +106,7 @@ public class MainController {
         Alert configAlert = new Alert(Alert.AlertType.CONFIRMATION);
         configAlert.setTitle("Cấu hình Engine");
         configAlert.setHeaderText("Cấu hình đường dẫn Engine");
-        
+
         javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
@@ -118,15 +115,15 @@ public class MainController {
         javafx.scene.control.TextField pathField = new javafx.scene.control.TextField();
         pathField.setText(SchedulerEngineService.getEnginePath());
         pathField.setPrefWidth(300);
-        
+
         Button btnBrowse = new Button("...");
         btnBrowse.setOnAction(evt -> {
             FileChooser fileChooser = new FileChooser();
             fileChooser.setTitle("Chọn file Engine");
             fileChooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("Executables", "*.exe"),
-                new FileChooser.ExtensionFilter("JAR Files", "*.jar"),
-                new FileChooser.ExtensionFilter("All Files", "*.*")
+                    new FileChooser.ExtensionFilter("Executables", "*.exe"),
+                    new FileChooser.ExtensionFilter("JAR Files", "*.jar"),
+                    new FileChooser.ExtensionFilter("All Files", "*.*")
             );
             File initialFile = new File(pathField.getText());
             if (initialFile.exists() && initialFile.getParentFile() != null) {
@@ -189,7 +186,7 @@ public class MainController {
         btnScheduler.setStyle("-fx-background-color: transparent;");
         btnAssignment.setStyle("-fx-background-color: transparent;");
         btnSessions.setStyle("-fx-background-color: transparent;");
-        
+
         // Highlight the selected button
         activeButton.setStyle("-fx-background-color: #2980b9;");
     }

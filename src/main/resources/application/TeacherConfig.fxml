@@ -3,7 +3,7 @@
 <?import javafx.geometry.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<SplitPane fx:id="root" xmlns:fx="http://javafx.com/fxml/1" dividerPositions="0.2" prefHeight="700.0" prefWidth="1100.0"
+<SplitPane xmlns:fx="http://javafx.com/fxml/1" fx:id="root" dividerPositions="0.2" prefHeight="700.0" prefWidth="1100.0"
            xmlns="http://javafx.com/javafx/17" fx:controller="application.controllers.TeacherController">
     <VBox spacing="10.0" minWidth="200.0" maxWidth="350.0">
         <padding>

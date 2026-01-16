@@ -17,13 +17,9 @@ import java.util.prefs.Preferences;
 
 public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
 
-    private List<TaskData> inputData;
     private static final String PREF_ENGINE_PATH = "engine_path";
     private static final String DEFAULT_ENGINE_PATH = "";
-
-    public void setInputData(List<TaskData> inputData) {
-        this.inputData = inputData;
-    }
+    private List<TaskData> inputData;
 
     public static String getEnginePath() {
         Preferences prefs = Preferences.userNodeForPackage(SchedulerEngineService.class);
@@ -35,12 +31,16 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
         prefs.put(PREF_ENGINE_PATH, path);
     }
 
+    public void setInputData(List<TaskData> inputData) {
+        this.inputData = inputData;
+    }
+
     @Override
     protected Task<Map<Variable, Slot>> createTask() {
         return new Task<Map<Variable, Slot>>() {
             @Override
             protected Map<Variable, Slot> call() throws Exception {
-                if(inputData == null || inputData.isEmpty()){
+                if (inputData == null || inputData.isEmpty()) {
                     throw new IllegalArgumentException("[ERROR] Dữ liệu đầu vào trống!");
                 }
 
@@ -49,7 +49,7 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
                 File tmpIn = null;
                 File tmpOut = null;
 
-                try{
+                try {
                     tmpIn = File.createTempFile("sched_in_", ".bin");
                     tmpOut = File.createTempFile("sched_out_", ".bin");
 
@@ -75,9 +75,9 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
 
                     Process process = pb.start();
 
-                    try(BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()))){
+                    try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                         String line;
-                        while((line = bufferedReader.readLine()) != null){
+                        while ((line = bufferedReader.readLine()) != null) {
                             System.out.println("[ENGINE]: " + line);
                         }
                     }

@@ -10,29 +10,35 @@
 </p>
 
 ## 🎯 Overview
-Automated desktop solution for school scheduling. This application transforms the error-prone manual task of time-slot assignment into an optimized process using high-performance constraint solvers.
+
+Automated desktop solution for school scheduling. This application transforms the error-prone manual task of time-slot
+assignment into an optimized process using high-performance constraint solvers.
 
 > [!IMPORTANT]
-> **Core Engine:** The optimization logic (CP-SAT) is hosted in a private repository. Contact [dhl26052004@gmail.com](mailto:dhl26052004@gmail.com) for access to the `scheduler.engine.jar`.
+> **Core Engine:** The optimization logic (CP-SAT) is hosted in a private repository.
+> Contact [dhl26052004@gmail.com](mailto:dhl26052004@gmail.com) for access to the `scheduler.engine.jar`.
 
 ## 🚀 Key Features
+
 * **Smart Resource Management:** CRUD for Teachers, Classes, and Subjects with SQLite persistence.
 * **Constraint Configuration:** Visual "Busy Matrix" for teachers and customizable teaching loads.
 * **Automated Solver:** Deep integration with **Google OR-Tools** to solve NP-hard scheduling problems.
 * **Modern UI:** Responsive desktop experience built with JavaFX and FXML.
 
 ## 🛠️ Tech Stack
+
 * **Language:** Java 25
 * **GUI:** JavaFX 26
 * **Database:** SQLite
 * **Optimization:** Google OR-Tools (CP-SAT Solver)
 
 ## 🏗️ Architecture
+
 Decoupled **MVC** (Model-View-Controller) for clear separation of UI and logic.
 
 <details>
   <summary>Click to see diagram</summary>
-  
+
   ```mermaid
   graph TD
       subgraph Public_Application_Core [Application Core<br/>Open Source]
@@ -65,10 +71,11 @@ Decoupled **MVC** (Model-View-Controller) for clear separation of UI and logic.
       API -->|5. Update Model| M
       M -->|6. Refresh UI| V
   ```
+
 </details>
 
-
 ## 🗺️ Roadmap
+
 - [x] Base MVC Architecture
 - [x] Google OR-Tools Integration (CP-SAT)
 - [ ] Export schedule to Excel/PDF

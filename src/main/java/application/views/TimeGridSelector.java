@@ -100,10 +100,12 @@ public class TimeGridSelector extends VBox {
                     if (newVal) {
                         btn.setStyle("-fx-base: #ef9a9a; -fx-text-fill: red; -fx-font-weight: bold;");
                         btn.setText("X");
-                        remainPeriods--;                    } else {
+                        remainPeriods--;
+                    } else {
                         btn.setStyle("-fx-base: #e3f2fd;");
                         btn.setText("");
-                        remainPeriods++;                    }
+                        remainPeriods++;
+                    }
                 });
 
                 // Store reference
@@ -214,7 +216,7 @@ public class TimeGridSelector extends VBox {
     public void clear() {
         for (int d = 0; d < DAYS.length; d++) {
             for (int t = 0; t < totalPeriods; t++) {
-                if(cells[d][t] != null) {
+                if (cells[d][t] != null) {
                     cells[d][t].setSelected(false);
                 }
             }
