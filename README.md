@@ -78,7 +78,7 @@ Decoupled **MVC** (Model-View-Controller) for clear separation of UI and logic.
 
 - [x] Base MVC Architecture
 - [x] Google OR-Tools Integration (CP-SAT)
-- [ ] Export schedule to Excel/PDF
+- [x] Export schedule to Excel/PDF
 - [ ] Multi-language support (Vietnamese/English)
 - [ ] Interactive schedule view where admin can drag and drop the slots
 
