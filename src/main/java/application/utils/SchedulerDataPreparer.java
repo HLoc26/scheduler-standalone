@@ -2,12 +2,9 @@ package application.utils;
 
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
-import engine.v2.definitions.TaskData;
+import scheduler.common.models.TaskData;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class SchedulerDataPreparer {
 
