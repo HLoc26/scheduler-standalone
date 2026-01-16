@@ -2,27 +2,32 @@ package application.controllers;
 
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
+import application.services.SchedulerEngineService;
 import application.utils.SchedulerDataPreparer;
-import engine.v2.definitions.Slot;
-import engine.v2.definitions.Variable;
-import engine.SchedulerEngineFactory;
-import engine.v2.definitions.TaskData;
-import engine.v2.interfaces.ISchedulerEngine;
+import scheduler.common.models.Slot;
+import scheduler.common.models.TaskData;
+import scheduler.common.models.Variable;
+
 import javafx.concurrent.Task;
+import javafx.concurrent.Worker;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextArea;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class ScheduleGeneratorController {
 
     private final RepositoryOrchestrator repo;
-    private final SchedulerEngineFactory engineFactory;
-    // Callback to call MainLayout to update screen
+
+    private final SchedulerEngineService schedulerEngineService;
+
+    // Callback to call main layout to update screen
     private Runnable onFinishedCallback;
 
     @FXML
@@ -38,77 +43,216 @@ public class ScheduleGeneratorController {
     @FXML
     private Button btnViewResult;
 
-    private GenerateTask currentTask;
+    // Keep ref to running tasks so that we can cancel
+    private Worker<?> currentWorker;
 
-    public ScheduleGeneratorController(RepositoryOrchestrator repo, SchedulerEngineFactory engineFactory) {
+    public ScheduleGeneratorController(RepositoryOrchestrator repo) {
         this.repo = repo;
-        this.engineFactory = engineFactory;
+        // Initialize service
+        this.schedulerEngineService = new SchedulerEngineService();
     }
 
     public void setOnFinished(Runnable callback) {
         this.onFinishedCallback = callback;
     }
 
+    @FXML
     public void initialize() {
+        // Cấu hình ban đầu cho Engine Service (lắng nghe log từ service này)
+        setupEngineServiceBindings();
+
         startProcess();
     }
+
+    private void setupEngineServiceBindings() {
+        // Lắng nghe message của Service để in ra console
+        schedulerEngineService.messageProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) appendLog(newVal);
+        });
+
+        // Xử lý khi Engine chạy xong thành công
+        schedulerEngineService.setOnSucceeded(e -> {
+            Map<Variable, Slot> result = schedulerEngineService.getValue();
+            if (result != null && !result.isEmpty()) {
+                appendLog("[THÀNH CÔNG] Engine đã trả về " + result.size() + " slots.");
+                // Chuyển sang Phase 3: Lưu vào DB
+                saveData(result);
+            } else {
+                handleError(new RuntimeException("Engine trả về kết quả rỗng!"));
+            }
+        });
+
+        // Xử lý khi Engine gặp lỗi
+        schedulerEngineService.setOnFailed(e -> handleError(schedulerEngineService.getException()));
+    }
+
+    private void bindUiToWorker(Worker<?> worker) {
+        // Unbind cũ nếu có
+        progressBar.progressProperty().unbind();
+        lblSubStatus.textProperty().unbind();
+
+        // Bind mới
+        progressBar.progressProperty().bind(worker.progressProperty());
+        lblSubStatus.textProperty().bind(worker.messageProperty());
+
+        this.currentWorker = worker;
+    }
+
+    // MAIN PROCESS FLOW
 
     private void startProcess() {
         btnViewResult.setVisible(false);
         btnViewResult.setManaged(false);
         btnCancel.setDisable(false);
         txtConsole.clear();
+        lblPercent.setText("0%");
 
-        // Start task
-        currentTask = new GenerateTask();
+        appendLog(">> BẮT ĐẦU QUY TRÌNH XẾP LỊCH TỰ ĐỘNG");
 
-        // Bind UI into task progress
-        progressBar.progressProperty().bind(currentTask.progressProperty());
-        lblSubStatus.textProperty().bind(currentTask.messageProperty());
+        // start phase 1
+        prepareData();
+    }
 
-        // Listen to logs
-        currentTask.valueProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null) {
-                appendLog(newVal);
+    /**
+     * Phase 1: Load data from DB and prepare TaskData
+     */
+    private void prepareData() {
+        Task<List<TaskData>> prepTask = new Task<>() {
+            @Override
+            protected List<TaskData> call() throws Exception {
+                updateMessage("[INFO] Đang khởi tạo kết nối cơ sở dữ liệu...");
+                updateProgress(0, 100);
+
+                // 1. Load Data
+                updateMessage("[INFO] Đang tải danh sách giáo viên...");
+                List<Teacher> teachers = repo.getTeacherRepository().getAll();
+
+                appendLog("[INFO] Tìm thấy " + teachers.size() + " giáo viên.");
+                Thread.sleep(100); // UI visual delay
+                updateProgress(10, 100);
+
+                updateMessage("[INFO] Đang tải chương trình học...");
+                List<Curriculum> curriculums = repo.getCurriculumRepository().getAll();
+                appendLog("[INFO] Tìm thấy " + curriculums.size() + " chương trình học.");
+                Thread.sleep(100);
+                updateProgress(20, 100);
+
+                updateMessage("[INFO] Đang tải danh sách lớp học...");
+                List<Clazz> classes = repo.getClassRepository().getAll();
+                appendLog("[INFO] Tìm thấy " + classes.size() + " lớp.");
+                Thread.sleep(100);
+                updateProgress(30, 100);
+
+                // 2. Prepare Data
+                updateMessage("[INFO] Đang chuẩn bị dữ liệu...");
+                SchedulerDataPreparer preparer = new SchedulerDataPreparer(repo);
+                List<TaskData> taskDataList = preparer.prepare();
+
+                appendLog("[INFO] Đã tạo thành công " + taskDataList.size() + " tác vụ xếp lịch.");
+                updateProgress(40, 100);
+
+                return taskDataList;
             }
+        };
+
+        // Done Prep -> Move to Phase 2
+        prepTask.setOnSucceeded(e -> {
+            List<TaskData> data = prepTask.getValue();
+            appendLog("[INFO] Giai đoạn chuẩn bị dữ liệu hoàn tất.");
+            runEngine(data);
         });
 
-        // Complete
-        currentTask.setOnSucceeded(e -> {
-            appendLog(">> HOÀN TẤT! Đã tìm thấy nghiệm tối ưu.");
-            lblPercent.setText("100%");
-            lblSubStatus.textProperty().unbind();
-            lblSubStatus.setText("Đã xếp xong!");
+        prepTask.setOnFailed(e -> handleError(prepTask.getException()));
 
-            btnCancel.setDisable(true);
-            btnViewResult.setVisible(true);
-            btnViewResult.setManaged(true);
+        bindUiToWorker(prepTask);
+        new Thread(prepTask).start();
+    }
 
-            // Auto change screen after 1s
-            // if (onFinishedCallback != null) onFinishedCallback.run();
-        });
+    /**
+     * Phase 2: Run SchedulerEngineService (Process ngoài)
+     */
+    private void runEngine(List<TaskData> inputData) {
+        appendLog(">> BẮT ĐẦU CHẠY THUẬT TOÁN...");
 
-        // When fail
-        currentTask.setOnFailed(e -> {
-            appendLog(">> LỖI: " + currentTask.getException().getMessage());
-            currentTask.getException().printStackTrace();
-            lblSubStatus.setText("Xảy ra lỗi trong quá trình xử lý.");
-        });
+        // Setup input for Service
+        schedulerEngineService.setInputData(inputData);
 
-        // Run Task on background Thread
-        new Thread(currentTask).start();
+        // Bind UI into Service
+        bindUiToWorker(schedulerEngineService);
+
+        // Reset and run Service
+        schedulerEngineService.restart();
+    }
+
+    /**
+     * Phase 3: Save data to DB
+     */
+    private void saveData(Map<Variable, Slot> result) {
+        appendLog(">> ĐANG LƯU DỮ LIỆU...");
+
+        Task<Void> saveTask = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                updateMessage("[INFO] Đang lưu kết quả vào CSDL...");
+                updateProgress(90, 100);
+
+                repo.getScheduleRepository().saveAll(result);
+
+                updateProgress(100, 100);
+                updateMessage("[INFO] Hoàn tất lưu trữ.");
+                return null;
+            }
+        };
+
+        saveTask.setOnSucceeded(e -> handleSuccess());
+        saveTask.setOnFailed(e -> handleError(saveTask.getException()));
+
+        bindUiToWorker(saveTask);
+        new Thread(saveTask).start();
+    }
+
+    // --- UTILS & HANDLERS ---
+
+    private void handleSuccess() {
+        appendLog(">> HOÀN TẤT TOÀN BỘ QUY TRÌNH!");
+        lblPercent.setText("100%");
+        lblSubStatus.textProperty().unbind();
+        lblSubStatus.setText("Đã xếp xong!");
+        progressBar.progressProperty().unbind();
+        progressBar.setProgress(1);
+
+        btnCancel.setDisable(true);
+        btnViewResult.setVisible(true);
+        btnViewResult.setManaged(true);
+    }
+
+    private void handleError(Throwable ex) {
+        appendLog(">> LỖI: " + ex.getMessage());
+        ex.printStackTrace();
+
+        lblSubStatus.textProperty().unbind();
+        lblSubStatus.setText("Lỗi: " + ex.getMessage());
+        progressBar.progressProperty().unbind();
+        progressBar.setProgress(0);
+
+        btnCancel.setDisable(true);
     }
 
     private void appendLog(String message) {
         txtConsole.appendText(message + "\n");
-        // Auto scroll to bottom
         txtConsole.selectPositionCaret(txtConsole.getLength());
     }
 
     @FXML
     public void handleCancel() {
-        if (currentTask != null && currentTask.isRunning()) {
-            currentTask.cancel();
+        if (currentWorker != null && currentWorker.isRunning()) {
+            currentWorker.cancel();
+
+            // If is service, call its cancel
+            if (schedulerEngineService.isRunning()) {
+                schedulerEngineService.cancel();
+            }
+
             appendLog(">> Đã hủy bỏ bởi người dùng.");
             lblSubStatus.textProperty().unbind();
             lblSubStatus.setText("Đã hủy.");
@@ -119,68 +263,6 @@ public class ScheduleGeneratorController {
     public void handleViewResult() {
         if (onFinishedCallback != null) {
             onFinishedCallback.run();
-        }
-    }
-
-    private class GenerateTask extends Task<String> {
-        @Override
-        protected String call() throws Exception {
-            // Load data
-            updateMessage("Đang tải danh sách giáo viên...");
-            List<Teacher> teachers = repo.getTeacherRepository().getAll();
-            updateValue("[THÔNG TIN] Đã tải " + teachers.size() + " giáo viên từ cơ sở dữ liệu.");
-            Thread.sleep(200);
-            updateProgress(10, 100);
-
-            updateMessage("Đang tải cấu hình chương trình học...");
-            List<Curriculum> curriculums = repo.getCurriculumRepository().getAll();
-            updateValue("[THÔNG TIN] Đã tải " + curriculums.size() + " cấu hình chương trình học.");
-            Thread.sleep(200);
-            updateProgress(20, 100);
-
-            updateMessage("Đang tải danh sách lớp học...");
-            List<Clazz> classes = repo.getClassRepository().getAll();
-            updateValue("[THÔNG TIN] Đã tải " + classes.size() + " lớp học.");
-            Thread.sleep(200);
-            updateProgress(30, 100);
-
-            // Prepare Data for Engine
-            updateMessage("Đang chuẩn bị dữ liệu và tạo tác vụ ảo...");
-
-            SchedulerDataPreparer preparer = new SchedulerDataPreparer(repo);
-            List<TaskData> taskDataList = preparer.prepare();
-
-            updateProgress(40, 100);
-
-            // Initialize solver
-            updateMessage("Khởi tạo Google OR-Tools Solver...");
-            updateValue("[GIẢI THUẬT] Đang khởi tạo mô hình CP-SAT...");
-
-            ISchedulerEngine engine = engineFactory.createEngineV2();
-
-            updateProgress(50, 100);
-
-            // Solving
-            updateMessage("Đang giải bài toán tối ưu...");
-            updateValue("[GIẢI THUẬT] Bắt đầu tìm kiếm giải pháp...");
-
-            Map<Variable, Slot> result = engine.schedule(taskDataList);
-
-            if (result != null) {
-                updateValue("[THÀNH CÔNG] Đã tìm thấy lịch học tối ưu!");
-                updateValue("[THÔNG TIN] Tổng số tiết đã xếp: " + result.size());
-
-                // Save result to DB
-                repo.getScheduleRepository().saveAll(result);
-                updateValue("[CSDL] Đã lưu kết quả vào cơ sở dữ liệu.");
-
-            } else {
-                updateValue("[THẤT BẠI] Không tìm thấy giải pháp nào thỏa mãn các ràng buộc.");
-                throw new RuntimeException("Solver returned null");
-            }
-
-            updateProgress(100, 100);
-            return "[THÀNH CÔNG] Quá trình xếp thời khóa biểu hoàn tất.";
         }
     }
 }
