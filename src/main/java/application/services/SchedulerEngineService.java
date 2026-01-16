@@ -13,13 +13,26 @@ import scheduler.common.utils.ProtoMapper;
 import java.io.*;
 import java.util.List;
 import java.util.Map;
+import java.util.prefs.Preferences;
 
 public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
 
     private List<TaskData> inputData;
+    private static final String PREF_ENGINE_PATH = "engine_path";
+    private static final String DEFAULT_ENGINE_PATH = "";
 
     public void setInputData(List<TaskData> inputData) {
         this.inputData = inputData;
+    }
+
+    public static String getEnginePath() {
+        Preferences prefs = Preferences.userNodeForPackage(SchedulerEngineService.class);
+        return prefs.get(PREF_ENGINE_PATH, DEFAULT_ENGINE_PATH);
+    }
+
+    public static void setEnginePath(String path) {
+        Preferences prefs = Preferences.userNodeForPackage(SchedulerEngineService.class);
+        prefs.put(PREF_ENGINE_PATH, path);
     }
 
     @Override
@@ -50,10 +63,13 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
 
                     updateMessage("[INFO] Đang khởi tạo thuật toán...");
 
-                    // TODO: replace with real path
-                    String enginePath = "D:\\.HCMUTE\\.PET.PROJECT\\scheduler-standalone\\engine\\target\\scheduler.engine-2.1.0.jar";
+                    String enginePath = getEnginePath();
+                    File engineFile = new File(enginePath);
+                    if (!engineFile.exists()) {
+                        throw new FileNotFoundException("Engine JAR not found at: " + enginePath);
+                    }
 
-                    ProcessBuilder pb = new ProcessBuilder("java", "-jar", enginePath, tmpIn.getAbsolutePath(), tmpOut.getAbsolutePath());
+                    ProcessBuilder pb = new ProcessBuilder(enginePath, tmpIn.getAbsolutePath(), tmpOut.getAbsolutePath());
 
                     pb.redirectErrorStream(true);
 

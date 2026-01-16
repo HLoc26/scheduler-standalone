@@ -1,14 +1,21 @@
 package application.controllers;
 
 import application.repository.RepositoryOrchestrator;
+import application.services.SchedulerEngineService;
 import engine.SchedulerEngineFactory;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.layout.StackPane;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.Optional;
 
 public class MainController {
 
@@ -25,6 +32,8 @@ public class MainController {
     private Button btnScheduler;
     @FXML
     private Button btnAssignment;
+    @FXML
+    private Button btnConfig;
 
     // Constructor receiving Repo from the main App
     public MainController(RepositoryOrchestrator repo) {
@@ -93,6 +102,80 @@ public class MainController {
 
         // (Tùy chọn) Highlight nút nào đó trên menu nếu cần
         // setActiveButton(btnSchedule);
+    }
+
+    @FXML
+    public void showConfigDialog() {
+        TextInputDialog dialog = new TextInputDialog(SchedulerEngineService.getEnginePath());
+        dialog.setTitle("Cấu hình Engine");
+        dialog.setHeaderText("Đường dẫn đến file Engine JAR");
+        dialog.setContentText("Path:");
+
+        // Add a button to open file chooser
+        Button browseButton = new Button("Chọn file...");
+        browseButton.setOnAction(e -> {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Chọn file Engine JAR");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JAR Files", "*.jar"));
+            File selectedFile = fileChooser.showOpenDialog(dialog.getDialogPane().getScene().getWindow());
+            if (selectedFile != null) {
+                dialog.getEditor().setText(selectedFile.getAbsolutePath());
+            }
+        });
+        
+        // We can't easily add a custom button to TextInputDialog in a standard way without more complex code,
+        // so for simplicity let's just use the text input or maybe a custom dialog would be better.
+        // However, the user asked for a modal to choose the path.
+        // Let's stick to a simple approach first: Text input with current value.
+        // If we want a file chooser, we might need a custom Dialog.
+        
+        // Let's try to make it slightly better by using a custom Alert/Dialog if needed, 
+        // but TextInputDialog is standard.
+        // Let's just use TextInputDialog for now as it's simplest for "pop up a modal".
+        // If the user wants a file chooser button, we'd need to build a custom Dialog<String>.
+        
+        // Let's implement a custom dialog with a Browse button for better UX.
+        
+        Alert configAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        configAlert.setTitle("Cấu hình Engine");
+        configAlert.setHeaderText("Cấu hình đường dẫn Engine");
+        
+        javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new javafx.geometry.Insets(20, 150, 10, 10));
+
+        javafx.scene.control.TextField pathField = new javafx.scene.control.TextField();
+        pathField.setText(SchedulerEngineService.getEnginePath());
+        pathField.setPrefWidth(300);
+        
+        Button btnBrowse = new Button("...");
+        btnBrowse.setOnAction(evt -> {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Chọn file Engine JAR");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JAR Files", "*.jar"));
+            File initialFile = new File(pathField.getText());
+            if (initialFile.exists() && initialFile.getParentFile() != null) {
+                fileChooser.setInitialDirectory(initialFile.getParentFile());
+            }
+            
+            File selectedFile = fileChooser.showOpenDialog(configAlert.getOwner());
+            if (selectedFile != null) {
+                pathField.setText(selectedFile.getAbsolutePath());
+            }
+        });
+
+        grid.add(new javafx.scene.control.Label("Engine Path:"), 0, 0);
+        grid.add(pathField, 1, 0);
+        grid.add(btnBrowse, 2, 0);
+
+        configAlert.getDialogPane().setContent(grid);
+
+        Optional<javafx.scene.control.ButtonType> result = configAlert.showAndWait();
+        if (result.isPresent() && result.get() == javafx.scene.control.ButtonType.OK) {
+            String newPath = pathField.getText();
+            SchedulerEngineService.setEnginePath(newPath);
+        }
     }
 
     // Helper function to load FXML and set Controller manually
