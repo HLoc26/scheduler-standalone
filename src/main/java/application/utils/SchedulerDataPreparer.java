@@ -86,6 +86,14 @@ public class SchedulerDataPreparer {
                 }
             }
 
+            // Clone teacher busy matrix
+            boolean[][] originalTeacherMatrix = teacher.getBusyMatrix();
+            boolean[][] teacherMatrixClone = new boolean[originalTeacherMatrix.length][];
+            for(int i = 0; i < originalTeacherMatrix.length; i++) {
+                // Clone every single row
+                teacherMatrixClone[i] = originalTeacherMatrix[i].clone();
+            }
+
             taskDataList.add(new TaskData(
                     solverIdCounter++,
                     assign.getId(),
@@ -96,7 +104,7 @@ public class SchedulerDataPreparer {
                     EnumMapper.toEngineSession(grade.getSession().getSessionName()),
                     grade.getLevel(),
                     teacher.getId(),
-                    teacher.getBusyMatrix(),
+                    teacherMatrixClone,
                     finalClassBusyMatrix
             ));
         }
