@@ -1,14 +1,21 @@
 package application.controllers;
 
 import application.repository.RepositoryOrchestrator;
+import application.services.SchedulerEngineService;
 import engine.SchedulerEngineFactory;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.layout.StackPane;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.Optional;
 
 public class MainController {
 
@@ -25,6 +32,8 @@ public class MainController {
     private Button btnScheduler;
     @FXML
     private Button btnAssignment;
+    @FXML
+    private Button btnConfig;
 
     // Constructor receiving Repo from the main App
     public MainController(RepositoryOrchestrator repo) {
@@ -93,6 +102,54 @@ public class MainController {
 
         // (Tùy chọn) Highlight nút nào đó trên menu nếu cần
         // setActiveButton(btnSchedule);
+    }
+
+    @FXML
+    public void showConfigDialog() {
+        Alert configAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        configAlert.setTitle("Cấu hình Engine");
+        configAlert.setHeaderText("Cấu hình đường dẫn Engine");
+        
+        javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new javafx.geometry.Insets(20, 150, 10, 10));
+
+        javafx.scene.control.TextField pathField = new javafx.scene.control.TextField();
+        pathField.setText(SchedulerEngineService.getEnginePath());
+        pathField.setPrefWidth(300);
+        
+        Button btnBrowse = new Button("...");
+        btnBrowse.setOnAction(evt -> {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Chọn file Engine");
+            fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Executables", "*.exe"),
+                new FileChooser.ExtensionFilter("JAR Files", "*.jar"),
+                new FileChooser.ExtensionFilter("All Files", "*.*")
+            );
+            File initialFile = new File(pathField.getText());
+            if (initialFile.exists() && initialFile.getParentFile() != null) {
+                fileChooser.setInitialDirectory(initialFile.getParentFile());
+            }
+
+            File selectedFile = fileChooser.showOpenDialog(configAlert.getOwner());
+            if (selectedFile != null) {
+                pathField.setText(selectedFile.getAbsolutePath());
+            }
+        });
+
+        grid.add(new javafx.scene.control.Label("Engine Path:"), 0, 0);
+        grid.add(pathField, 1, 0);
+        grid.add(btnBrowse, 2, 0);
+
+        configAlert.getDialogPane().setContent(grid);
+
+        Optional<javafx.scene.control.ButtonType> result = configAlert.showAndWait();
+        if (result.isPresent() && result.get() == javafx.scene.control.ButtonType.OK) {
+            String newPath = pathField.getText();
+            SchedulerEngineService.setEnginePath(newPath);
+        }
     }
 
     // Helper function to load FXML and set Controller manually
