@@ -2,12 +2,9 @@ package application.utils;
 
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
-import engine.v2.definitions.TaskData;
+import scheduler.common.models.TaskData;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class SchedulerDataPreparer {
 
@@ -89,6 +86,14 @@ public class SchedulerDataPreparer {
                 }
             }
 
+            // Clone teacher busy matrix
+            boolean[][] originalTeacherMatrix = teacher.getBusyMatrix();
+            boolean[][] teacherMatrixClone = new boolean[originalTeacherMatrix.length][];
+            for(int i = 0; i < originalTeacherMatrix.length; i++) {
+                // Clone every single row
+                teacherMatrixClone[i] = originalTeacherMatrix[i].clone();
+            }
+
             taskDataList.add(new TaskData(
                     solverIdCounter++,
                     assign.getId(),
@@ -99,7 +104,7 @@ public class SchedulerDataPreparer {
                     EnumMapper.toEngineSession(grade.getSession().getSessionName()),
                     grade.getLevel(),
                     teacher.getId(),
-                    teacher.getBusyMatrix(),
+                    teacherMatrixClone,
                     finalClassBusyMatrix
             ));
         }

@@ -72,8 +72,7 @@ public class MainController {
 
     @FXML
     public void showScheduleGenerator() {
-        SchedulerEngineFactory engineFactory = new SchedulerEngineFactory();
-        ScheduleGeneratorController runController = new ScheduleGeneratorController(repo, engineFactory);
+        ScheduleGeneratorController runController = new ScheduleGeneratorController(repo);
 
         // Khi chạy xong -> Chuyển sang trang Kết quả
         runController.setOnFinished(this::showScheduleResult);
