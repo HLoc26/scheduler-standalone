@@ -7,7 +7,11 @@ import javafx.collections.FXCollections;
 import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
@@ -52,6 +56,10 @@ public class ScheduleController {
     public void initialize() {
         initGridStructure();
         setupSidebar();
+        
+        // Ensure Grid is interactive
+        scheduleGrid.setPickOnBounds(true);
+        scheduleGrid.setMouseTransparent(false);
     }
 
     /**
@@ -268,6 +276,10 @@ public class ScheduleController {
                 Pane emptyCell = new Pane();
                 // Just white background. No borders.
                 emptyCell.setStyle("-fx-background-color: white;");
+                emptyCell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+                emptyCell.setUserData("empty"); // Mark as empty slot
+                
+                makeDroppable(emptyCell);
                 scheduleGrid.add(emptyCell, col, row);
             }
         }
@@ -285,18 +297,24 @@ public class ScheduleController {
         } else {
             rowIndex = period + 6;
         }
+        
+        // Remove any empty slot pane at this position to avoid z-order issues
+        removePaneAt(colIndex, rowIndex);
 
         VBox cell = new VBox(2);
         cell.setAlignment(Pos.CENTER);
+        cell.setUserData(subject); // Store subject name for validation
 
         Label lblSub = new Label(subject);
         lblSub.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #2c3e50;");
+        lblSub.setMouseTransparent(true);
 
         Label lblInfo = new Label();
         // Determine what to show based on the active tab
         boolean viewingByClass = btnTabClass.isSelected(); // If "Class" tab is active, we show Teacher name in cell
         lblInfo.setText(viewingByClass ? teacher : className);
         lblInfo.setStyle("-fx-font-size: 13px; -fx-text-fill: #7f8c8d;");
+        lblInfo.setMouseTransparent(true);
 
         cell.getChildren().addAll(lblSub, lblInfo);
 
@@ -311,9 +329,24 @@ public class ScheduleController {
 
         // Force cell to fill the grid slot
         cell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        cell.setPickOnBounds(true); // Ensure clicks are registered
+        cell.setMouseTransparent(false);
 
-        // Add to grid (This will sit on top of the empty white slot created in fillEmptySlots)
+        makeDraggable(cell, subject);
+        makeDroppable(cell);
+
+        // Add to grid
         scheduleGrid.add(cell, colIndex, rowIndex);
+        cell.toFront(); // Ensure it's on top
+    }
+    
+    private void removePaneAt(int col, int row) {
+        scheduleGrid.getChildren().removeIf(node -> {
+            Integer r = GridPane.getRowIndex(node);
+            Integer c = GridPane.getColumnIndex(node);
+            // Remove if it matches coordinates AND is marked as "empty"
+            return r != null && c != null && r == row && c == col && "empty".equals(node.getUserData());
+        });
     }
 
     // Helper to check if two items are consecutive
@@ -395,5 +428,101 @@ public class ScheduleController {
                 }
             }
         });
+    }
+
+    private void makeDraggable(Node node, String subjectName) {
+        node.setOnMousePressed(event -> {
+            event.consume(); // Prevent ScrollPane from stealing the event
+        });
+
+        node.setOnDragDetected(event -> {
+            if ("Sinh hoạt lớp".equalsIgnoreCase(subjectName) || "Chào cờ".equalsIgnoreCase(subjectName)) {
+                showRestrictionAlert(subjectName);
+                event.consume();
+                return;
+            }
+
+            Dragboard db = node.startDragAndDrop(TransferMode.MOVE);
+            ClipboardContent content = new ClipboardContent();
+            content.putString("lesson");
+            db.setContent(content);
+            event.consume();
+        });
+
+        node.setOnDragDone(event -> {
+            event.consume();
+        });
+    }
+
+    private void makeDroppable(Node target) {
+        target.setOnDragOver(event -> {
+            if (event.getGestureSource() != target && event.getDragboard().hasString()) {
+                event.acceptTransferModes(TransferMode.MOVE);
+            }
+            event.consume();
+        });
+
+        target.setOnDragDropped(event -> {
+            Dragboard db = event.getDragboard();
+            boolean success = false;
+            if (db.hasString()) {
+                // Check if target is a restricted lesson
+                if (isRestrictedTarget(target)) {
+                    showRestrictionAlert("tiết cố định (Chào cờ / SH Lớp)");
+                    event.setDropCompleted(false);
+                    event.consume();
+                    return;
+                }
+
+                Node source = (Node) event.getGestureSource();
+
+                Integer sourceRow = GridPane.getRowIndex(source);
+                Integer sourceCol = GridPane.getColumnIndex(source);
+                Integer targetRow = GridPane.getRowIndex(target);
+                Integer targetCol = GridPane.getColumnIndex(target);
+
+                if (sourceRow != null && sourceCol != null && targetRow != null && targetCol != null) {
+                    if (target instanceof VBox && source instanceof VBox) {
+                        // Swap
+                        GridPane.setRowIndex(source, targetRow);
+                        GridPane.setColumnIndex(source, targetCol);
+                        GridPane.setRowIndex(target, sourceRow);
+                        GridPane.setColumnIndex(target, sourceCol);
+                        success = true;
+                    } else if (target instanceof Pane && source instanceof VBox) {
+                        // Move VBox to Target Position
+                        GridPane.setRowIndex(source, targetRow);
+                        GridPane.setColumnIndex(source, targetCol);
+                        
+                        // Move Pane to Source Position (to act as placeholder there)
+                        GridPane.setRowIndex(target, sourceRow);
+                        GridPane.setColumnIndex(target, sourceCol);
+                        
+                        success = true;
+                    }
+                }
+            }
+            event.setDropCompleted(success);
+            event.consume();
+        });
+    }
+
+    private boolean isRestrictedTarget(Node target) {
+        if (target instanceof VBox) {
+            Object data = target.getUserData();
+            if (data instanceof String) {
+                String s = (String) data;
+                return "Sinh hoạt lớp".equalsIgnoreCase(s) || "Chào cờ".equalsIgnoreCase(s);
+            }
+        }
+        return false;
+    }
+
+    private void showRestrictionAlert(String subjectName) {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle("Hạn chế");
+        alert.setHeaderText(null);
+        alert.setContentText("Không thể di chuyển " + subjectName);
+        alert.show();
     }
 }

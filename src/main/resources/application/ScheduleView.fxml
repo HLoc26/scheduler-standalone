@@ -111,7 +111,7 @@
                     </content>
                 </ScrollPane>
 
-                <HBox alignment="BOTTOM_RIGHT" spacing="10" StackPane.alignment="BOTTOM_RIGHT">
+                <HBox alignment="BOTTOM_RIGHT" spacing="10" StackPane.alignment="BOTTOM_RIGHT" pickOnBounds="false">
                     <StackPane.margin>
                         <Insets bottom="30.0" right="30.0"/>
                     </StackPane.margin>
