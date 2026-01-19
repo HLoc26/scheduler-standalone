@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import scheduler.common.models.ESession;
+
 public class ClassConfigController {
     private final RepositoryOrchestrator repo;
     private Clazz currentSelectingClass;

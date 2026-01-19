@@ -1,5 +1,8 @@
 package application.models;
 
+import scheduler.common.models.ESession;
+import scheduler.common.models.EWeekDay;
+
 public class Session {
     private ESession sessionName;
     private boolean[][] busyMatrix; // 6 days x 10 periods

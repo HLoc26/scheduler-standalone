@@ -11,6 +11,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
 
+import scheduler.common.models.ESession;
+import scheduler.common.models.EWeekDay;
+
 public class ExcelExporter {
 
     private final RepositoryOrchestrator repo;

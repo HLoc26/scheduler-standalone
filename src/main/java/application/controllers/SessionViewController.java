@@ -1,6 +1,5 @@
 package application.controllers;
 
-import application.models.ESession;
 import application.models.Grade;
 import application.models.Session;
 import application.repository.RepositoryOrchestrator;
@@ -13,6 +12,8 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.StackPane;
 
 import java.util.List;
+
+import scheduler.common.models.ESession;
 
 public class SessionViewController {
 
