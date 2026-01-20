@@ -2,17 +2,25 @@ package application.controllers;
 
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
+import application.services.SwapEngineService;
 import application.utils.ExcelExporter;
+import application.utils.SwapperDataPreparer;
 import javafx.collections.FXCollections;
 import javafx.collections.transformation.FilteredList;
+import javafx.event.Event;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import scheduler.common.models.*;
 
 import java.io.File;
 import java.time.LocalDate;
@@ -52,13 +60,17 @@ public class ScheduleController {
     public void initialize() {
         initGridStructure();
         setupSidebar();
+
+        // Ensure Grid is interactive
+        scheduleGrid.setPickOnBounds(true);
+        scheduleGrid.setMouseTransparent(false);
     }
 
     /**
      * Sets up the Sidebar logic: CellFactory, Selection Listener, and Search Listener.
      */
     private void setupSidebar() {
-        // 1. Custom CellFactory to display proper names for Teacher or Class objects
+        // Custom CellFactory to display proper names for Teacher or Class objects
         listViewItems.setCellFactory(lv -> new ListCell<>() {
             @Override
             protected void updateItem(Object item, boolean empty) {
@@ -78,7 +90,7 @@ public class ScheduleController {
             }
         });
 
-        // 2. Handle Item Selection
+        // Handle Item Selection
         listViewItems.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 // Show Schedule, Hide Placeholder
@@ -92,7 +104,7 @@ public class ScheduleController {
             }
         });
 
-        // 3. Handle Search/Filtering
+        // Handle Search/Filtering
         txtSearch.textProperty().addListener((obs, oldVal, newVal) -> {
             if (filteredData != null) {
                 filteredData.setPredicate(item -> {
@@ -110,7 +122,7 @@ public class ScheduleController {
             }
         });
 
-        // 4. Initial Load (Default to Teacher tab)
+        // Initial Load (Default to Teacher tab)
         loadSidebarData("teacher");
     }
 
@@ -143,7 +155,7 @@ public class ScheduleController {
         filteredData = new FilteredList<>(FXCollections.observableArrayList(data), p -> true);
         listViewItems.setItems(filteredData);
 
-        // Auto-select the first item if data exists (UI UX improvement)
+        // Auto-select the first item if data exists
         if (!filteredData.isEmpty()) {
             listViewItems.getSelectionModel().selectFirst();
         } else {
@@ -157,7 +169,7 @@ public class ScheduleController {
     private void initGridStructure() {
         String[] days = {"Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"};
 
-        // Draw Column Headers (Days)
+        // Column Headers (Days)
         for (int i = 0; i < days.length; i++) {
             Label lbl = new Label(days[i]);
             lbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50;");
@@ -166,7 +178,7 @@ public class ScheduleController {
             scheduleGrid.add(cell, i + 1, 0);
         }
 
-        // Draw Row Headers (Periods)
+        // Row Headers (Periods)
         for (int i = 1; i <= 10; i++) {
             Label lbl = new Label("Tiết " + i);
             lbl.setStyle("-fx-text-fill: #7f8c8d;");
@@ -176,7 +188,7 @@ public class ScheduleController {
             scheduleGrid.add(cell, 0, rowIndex);
         }
 
-        // Draw Lunch Break Row
+        // Lunch Break Row
         Label lblBreak = new Label("NGHỈ TRƯA");
         lblBreak.setStyle("-fx-font-weight: bold; -fx-text-fill: white; -fx-font-size: 15px; -fx-letter-spacing: 2px;");
         StackPane breakCell = new StackPane(lblBreak);
@@ -188,7 +200,7 @@ public class ScheduleController {
      * Renders the schedule for the selected Teacher or Class.
      */
     private void renderSchedule(Object filterEntity) {
-        // 1. Clear old data (Keep headers: Row 0, Col 0, and Lunch Row 6)
+        // Clear old data (Keep headers: Row 0, Col 0, and Lunch Row 6)
         scheduleGrid.getChildren().removeIf(node -> {
             Integer r = GridPane.getRowIndex(node);
             Integer c = GridPane.getColumnIndex(node);
@@ -197,10 +209,10 @@ public class ScheduleController {
             return !isHeader;
         });
 
-        // 2. Fill empty slots with white background (Crucial for "Gap Technique" borders)
+        // Fill empty slots with white background
         fillEmptySlots();
 
-        // 3. Fetch lessons
+        // Fetch lessons
         List<ScheduleItem> lessons;
         if (filterEntity instanceof Clazz) {
             lessons = repo.getScheduleRepository().getByClassId(((Clazz) filterEntity).getId());
@@ -210,18 +222,18 @@ public class ScheduleController {
             return;
         }
 
-        // 4. Sort by day, then by period
+        // Sort by day, then by period
         lessons.sort(Comparator.comparing(ScheduleItem::day)
                 .thenComparingInt(ScheduleItem::period));
 
-        // 5. Draw each lesson
+        // Draw each lesson
         for (int i = 0; i < lessons.size(); i++) {
             ScheduleItem item = lessons.get(i);
 
             Clazz c = repo.getClassRepository().getById(item.classId());
             String className = (c != null) ? c.getClassName() : "Unknown";
 
-            ESession session = ESession.MORNING; // Default
+            ESession session = ESession.MORNING;
             if (c != null) {
                 Grade g = repo.getGradeRepository().getById(c.getGradeId());
                 if (g != null) {
@@ -231,9 +243,7 @@ public class ScheduleController {
             int dayInt = item.day().ordinal() + 2;
 
             // Get Subject Name
-            String subjectName = item.subjectId();
-            Subject s = repo.getSubjectRepository().getById(item.subjectId());
-            if (s != null) subjectName = s.getName();
+            Subject subject = repo.getSubjectRepository().getById(item.subjectId());
 
             // Get Teacher Name
             String teacherName = "";
@@ -251,7 +261,7 @@ public class ScheduleController {
                 if (isConsecutive(item, next)) isDouble = true;
             }
 
-            drawLessonCell(dayInt, item.period(), subjectName, teacherName, className, isDouble, session);
+            drawLessonCell(dayInt, item.period(), subject, teacherName, className, isDouble, session, item);
         }
     }
 
@@ -266,8 +276,12 @@ public class ScheduleController {
         for (int col = 1; col <= days; col++) {
             for (int row : periods) {
                 Pane emptyCell = new Pane();
-                // Just white background. No borders.
+                // White background
                 emptyCell.setStyle("-fx-background-color: white;");
+                emptyCell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+                emptyCell.setUserData("empty"); // Mark as empty slot
+
+                makeDroppable(emptyCell);
                 scheduleGrid.add(emptyCell, col, row);
             }
         }
@@ -276,7 +290,7 @@ public class ScheduleController {
     /**
      * Draws a specific lesson cell.
      */
-    private void drawLessonCell(int day, int period, String subject, String teacher, String className, boolean isDouble, ESession session) {
+    private void drawLessonCell(int day, int period, Subject subject, String teacher, String className, boolean isDouble, ESession session, ScheduleItem item) {
 
         int colIndex = day - 1; // Col 1 -> Monday
         int rowIndex;
@@ -286,34 +300,55 @@ public class ScheduleController {
             rowIndex = period + 6;
         }
 
+        // Remove empty slot pane to avoid z-order issues
+        removePaneAt(colIndex, rowIndex);
+
         VBox cell = new VBox(2);
         cell.setAlignment(Pos.CENTER);
+        cell.setUserData(new CellData(item, subject.getName())); // Store full item and subject name
 
-        Label lblSub = new Label(subject);
+        Label lblSub = new Label(subject.getName());
         lblSub.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #2c3e50;");
+        lblSub.setMouseTransparent(true);
 
         Label lblInfo = new Label();
         // Determine what to show based on the active tab
         boolean viewingByClass = btnTabClass.isSelected(); // If "Class" tab is active, we show Teacher name in cell
         lblInfo.setText(viewingByClass ? teacher : className);
         lblInfo.setStyle("-fx-font-size: 13px; -fx-text-fill: #7f8c8d;");
+        lblInfo.setMouseTransparent(true);
 
         cell.getChildren().addAll(lblSub, lblInfo);
 
         // Determine Background Color
         String bgStyle = "-fx-background-color: #f5f5f5;";
         if (isDouble) bgStyle = "-fx-background-color: #d4efdf;"; // Light mint
-        if ("Sinh hoạt lớp".equalsIgnoreCase(subject) || "Chào cờ".equalsIgnoreCase(subject))
+        if (Constants.SPECIAL_SUBJECTS.contains(subject.getId()))
             bgStyle = "-fx-background-color: #fadbd8;"; // Light red
 
-        // Apply style (Background ONLY, no border)
+        // Apply style
         cell.setStyle(bgStyle);
 
         // Force cell to fill the grid slot
         cell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        cell.setPickOnBounds(true); // Ensure clicks are registered
+        cell.setMouseTransparent(false);
 
-        // Add to grid (This will sit on top of the empty white slot created in fillEmptySlots)
+        makeDraggable(cell, subject);
+        makeDroppable(cell);
+
+        // Add to grid
         scheduleGrid.add(cell, colIndex, rowIndex);
+        cell.toFront(); // Ensure it's on top
+    }
+
+    private void removePaneAt(int col, int row) {
+        scheduleGrid.getChildren().removeIf(node -> {
+            Integer r = GridPane.getRowIndex(node);
+            Integer c = GridPane.getColumnIndex(node);
+            // Remove if it matches coordinates AND is marked as "empty"
+            return r != null && c != null && r == row && c == col && "empty".equals(node.getUserData());
+        });
     }
 
     // Helper to check if two items are consecutive
@@ -337,7 +372,7 @@ public class ScheduleController {
 
     @FXML
     public void handleExportExcel() {
-        // 1. Ask for Start Date
+        // Ask for Start Date
         Dialog<LocalDate> dialog = new Dialog<>();
         dialog.setTitle("Chọn ngày bắt đầu");
         dialog.setHeaderText("Vui lòng chọn ngày bắt đầu áp dụng thời khóa biểu");
@@ -366,7 +401,7 @@ public class ScheduleController {
         Optional<LocalDate> result = dialog.showAndWait();
 
         result.ifPresent(localDate -> {
-            // 2. Choose File
+            // Choose File
             FileChooser fileChooser = new FileChooser();
             fileChooser.setTitle("Lưu file Excel");
             fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Excel Files", "*.xlsx"));
@@ -395,5 +430,229 @@ public class ScheduleController {
                 }
             }
         });
+    }
+
+    private void makeDraggable(Node node, Subject subject) {
+        // Prevent ScrollPane from stealing the event
+        node.setOnMousePressed(Event::consume);
+
+        node.setOnDragDetected(event -> {
+            if (Constants.SPECIAL_SUBJECTS.contains(subject.getId())) {
+                showRestrictionAlert(subject.getName());
+                event.consume();
+                return;
+            }
+
+            Dragboard db = node.startDragAndDrop(TransferMode.MOVE);
+            ClipboardContent content = new ClipboardContent();
+            content.putString("lesson");
+            db.setContent(content);
+            event.consume();
+        });
+
+        node.setOnDragDone(Event::consume);
+    }
+
+    private void makeDroppable(Node target) {
+        target.setOnDragOver(event -> {
+            if (event.getGestureSource() != target && event.getDragboard().hasString()) {
+                event.acceptTransferModes(TransferMode.MOVE);
+            }
+            event.consume();
+        });
+
+        target.setOnDragDropped(event -> {
+            Dragboard db = event.getDragboard();
+            boolean success = false;
+            if (db.hasString()) {
+                // Check restricted lesson
+                if (isRestrictedTarget(target)) {
+                    showRestrictionAlert("tiết cố định (Chào cờ / SH Lớp)");
+                    event.setDropCompleted(false);
+                    event.consume();
+                    return;
+                }
+
+                Node source = (Node) event.getGestureSource();
+
+                // Source Item
+                CellData sourceData = (CellData) source.getUserData();
+                ScheduleItem sourceItem = sourceData.item();
+
+                // Target Slot Info
+                Integer targetRow = GridPane.getRowIndex(target);
+                Integer targetCol = GridPane.getColumnIndex(target);
+
+                if (targetRow != null && targetCol != null) {
+                    // Convert grid coords to Slot
+                    EWeekDay targetDay = EWeekDay.values()[targetCol - 1];
+                    ESession targetSession = (targetRow <= 5) ? ESession.MORNING : ESession.AFTERNOON;
+                    int targetPeriod = (targetRow <= 5) ? targetRow : targetRow - 6;
+                    Slot targetSlot = new Slot(targetDay, targetSession, targetPeriod);
+
+                    // Handle Logic
+                    handleManualScheduleUpdate(sourceItem, targetSlot);
+                    success = true;
+                }
+            }
+            event.setDropCompleted(success);
+            event.consume();
+        });
+    }
+
+    private void handleManualScheduleUpdate(ScheduleItem source, Slot targetSlot) {
+        // Validate Teacher Availability
+        Teacher t = repo.getTeacherRepository().getById(source.teacherId());
+        if (t != null) {
+            int pIndex = (targetSlot.session() == ESession.MORNING) ? (targetSlot.period() - 1) : (targetSlot.period() + 5 - 1);
+            if (t.getBusyMatrix()[targetSlot.day().ordinal()][pIndex]) {
+                showAlert("Giáo viên bận", "Giáo viên " + t.getName() + " bận (Lịch cá nhân) vào thời gian này.");
+                return;
+            }
+        }
+
+        if (repo.getScheduleRepository().isTeacherBusyExceptClass(source.teacherId(), source.classId(), targetSlot.day(), targetSlot.session(), targetSlot.period())) {
+            showAlert("Giáo viên bận", "Giáo viên " + (t != null ? t.getName() : source.teacherId()) + " đang dạy lớp khác vào thời gian này.");
+            return;
+        }
+
+        // Run Swap Engine Service
+        SwapperDataPreparer solver = new SwapperDataPreparer(repo);
+        SwapEngineInput input = solver.prepareInput(source.classId(), source, targetSlot);
+
+        SwapEngineService service = new SwapEngineService();
+        service.setInputData(input);
+
+        Alert loadingAlert = new Alert(Alert.AlertType.INFORMATION);
+        loadingAlert.setTitle("Đang xử lý");
+        loadingAlert.setHeaderText("Đang tìm phương án hoán đổi...");
+        loadingAlert.setContentText("Vui lòng đợi...");
+        loadingAlert.getDialogPane().lookupButton(ButtonType.OK).setVisible(false);
+        loadingAlert.show();
+
+        service.setOnSucceeded(event -> {
+            loadingAlert.close();
+            SwapEngineOutput output = service.getValue();
+            if (output != null && output.success()) {
+                showConfirmationDialog(output.changes());
+            } else {
+                showAlert("Không thể di chuyển", "Không tìm được phương án hoán đổi hợp lệ (Ràng buộc giáo viên hoặc môn học).");
+            }
+        });
+
+        service.setOnFailed(event -> {
+            loadingAlert.close();
+            Throwable ex = service.getException();
+            ex.printStackTrace();
+            showAlert("Lỗi", "Lỗi khi chạy engine: " + ex.getMessage());
+        });
+
+        service.start();
+    }
+
+    private void showConfirmationDialog(Map<Integer, Slot> changes) {
+        // Show Confirmation
+        StringBuilder msg = new StringBuilder();
+        msg.append("Xác nhận thay đổi lịch (Tìm thấy phương án tối ưu):\n\n");
+
+        for (Map.Entry<Integer, Slot> entry : changes.entrySet()) {
+            ScheduleItem item = repo.getScheduleRepository().getById(entry.getKey());
+            if (item == null) continue;
+
+            // Subject Name
+            String subjectName = item.subjectId();
+            Subject s = repo.getSubjectRepository().getById(item.subjectId());
+            if (s != null) subjectName = s.getName();
+
+            // Class Name
+            String className = item.classId();
+            Clazz c = repo.getClassRepository().getById(item.classId());
+            if (c != null) className = c.getClassName();
+
+            // Teacher Name
+            String teacherName = item.teacherId();
+            Teacher t = repo.getTeacherRepository().getById(item.teacherId());
+            if (t != null) teacherName = t.getName();
+
+            // Old Slot
+            String oldDay = getDayName(item.day());
+            int oldPeriod = getAbsolutePeriod(item.session(), item.period());
+
+            // New Slot
+            Slot newSlot = entry.getValue();
+            String newDay = getDayName(newSlot.day());
+            int newPeriod = getAbsolutePeriod(newSlot.session(), newSlot.period());
+
+            msg.append(String.format("- Lớp %s: [%s] (%s)\n", className, subjectName, teacherName));
+            msg.append(String.format("  Từ: %s - Tiết %d  --->  Đến: %s - Tiết %d\n\n",
+                    oldDay, oldPeriod, newDay, newPeriod));
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Xác nhận thay đổi");
+        confirm.setHeaderText("Phát hiện thay đổi lịch học (Chuỗi hoán đổi)");
+        confirm.setContentText(msg.toString());
+        confirm.getDialogPane().setMinHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
+
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            // Update DB
+            for (Map.Entry<Integer, Slot> entry : changes.entrySet()) {
+                repo.getScheduleRepository().updateSlot(entry.getKey(), entry.getValue().day(), entry.getValue().session(), entry.getValue().period());
+            }
+
+            // Refresh UI
+            Object selected = listViewItems.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                renderSchedule(selected);
+            }
+        }
+    }
+
+    private String getDayName(EWeekDay day) {
+        return switch (day) {
+            case MONDAY -> "Thứ 2";
+            case TUESDAY -> "Thứ 3";
+            case WEDNESDAY -> "Thứ 4";
+            case THURSDAY -> "Thứ 5";
+            case FRIDAY -> "Thứ 6";
+            case SATURDAY -> "Thứ 7";
+            default -> day.toString();
+        };
+    }
+
+    private int getAbsolutePeriod(ESession session, int period) {
+        if (session == ESession.MORNING) {
+            return period;
+        } else {
+            return period + 5;
+        }
+    }
+
+    private boolean isRestrictedTarget(Node target) {
+        if (target instanceof VBox) {
+            Object data = target.getUserData();
+            if (data instanceof CellData) {
+                String s = ((CellData) data).item.subjectId();
+                return Constants.SPECIAL_SUBJECTS.contains(s);
+            }
+        }
+        return false;
+    }
+
+    private void showRestrictionAlert(String subjectName) {
+        showAlert("Hạn chế", "Không thể di chuyển " + subjectName);
+    }
+
+    private void showAlert(String title, String content) {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.show();
+    }
+
+    // Inner record to store cell data
+    record CellData(ScheduleItem item, String subjectName) {
     }
 }

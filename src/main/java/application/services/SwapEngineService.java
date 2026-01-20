@@ -1,69 +1,58 @@
 package application.services;
 
-import application.models.Constants;
 import javafx.concurrent.Service;
 import javafx.concurrent.Task;
 import scheduler.common.constants.PathConstants;
-import scheduler.common.models.Slot;
-import scheduler.common.models.TaskData;
-import scheduler.common.models.Variable;
-import scheduler.common.proto.EngineInput;
-import scheduler.common.proto.EngineOutput;
-import scheduler.common.proto.TaskDataProto;
-import scheduler.common.utils.ProtoMapper;
+import scheduler.common.models.SwapEngineInput;
+import scheduler.common.models.SwapEngineOutput;
+import scheduler.common.proto.SwapEngineInputProto;
+import scheduler.common.proto.SwapEngineOutputProto;
+import scheduler.common.utils.SwapperMapper;
 
 import java.io.*;
-import java.util.List;
-import java.util.Map;
 import java.util.prefs.Preferences;
 
-public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
+public class SwapEngineService extends Service<SwapEngineOutput> {
 
     private static final String PREF_ENGINE_PATH = "engine_path";
     private static final String DEFAULT_ENGINE_PATH = "";
-    private List<TaskData> inputData;
+    private SwapEngineInput inputData;
 
     public static String getEnginePath() {
         Preferences prefs = Preferences.userNodeForPackage(SchedulerEngineService.class);
         return prefs.get(PREF_ENGINE_PATH, DEFAULT_ENGINE_PATH);
     }
 
-    public static void setEnginePath(String path) {
-        Preferences prefs = Preferences.userNodeForPackage(SchedulerEngineService.class);
-        prefs.put(PREF_ENGINE_PATH, path);
-    }
-
-    public void setInputData(List<TaskData> inputData) {
+    public void setInputData(SwapEngineInput inputData) {
         this.inputData = inputData;
     }
 
     @Override
-    protected Task<Map<Variable, Slot>> createTask() {
-        return new Task<Map<Variable, Slot>>() {
+    protected Task<SwapEngineOutput> createTask() {
+        return new Task<SwapEngineOutput>() {
             @Override
-            protected Map<Variable, Slot> call() throws Exception {
-                if (inputData == null || inputData.isEmpty()) {
+            protected SwapEngineOutput call() throws Exception {
+                if (inputData == null) {
                     throw new IllegalArgumentException("[ERROR] Dữ liệu đầu vào trống!");
                 }
 
-                updateMessage("[INFO] Đang chuẩn bị dữ liệu...");
+                updateMessage("[INFO] Đang chuẩn bị dữ liệu hoán đổi...");
 
                 File tmpIn = null;
                 File tmpOut = null;
 
                 try {
-                    tmpIn = File.createTempFile("sched_in_", ".bin");
-                    tmpOut = File.createTempFile("sched_out_", ".bin");
+                    tmpIn = File.createTempFile("swap_in_", ".bin");
+                    tmpOut = File.createTempFile("swap_out_", ".bin");
 
-                    List<TaskDataProto> taskDataProtoList = inputData.stream().map(ProtoMapper::toProto).toList();
-
-                    EngineInput engineInput = EngineInput.newBuilder().addAllTasks(taskDataProtoList).build();
+                    // Map SwapEngineInput to SwapEngineInputProto using SwapperMapper
+                    SwapEngineInputProto swapInputProto = SwapperMapper.toProtoInput(inputData);
 
                     try (FileOutputStream fos = new FileOutputStream(tmpIn)) {
-                        engineInput.writeTo(fos);
+                        swapInputProto.writeTo(fos);
                     }
 
-                    updateMessage("[INFO] Đang khởi tạo thuật toán...");
+                    updateMessage("[INFO] Đang khởi tạo thuật toán hoán đổi...");
 
                     String enginePath = getEnginePath();
                     File engineFile = new File(enginePath);
@@ -71,7 +60,13 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
                         throw new FileNotFoundException("Engine JAR not found at: " + enginePath);
                     }
 
-                    ProcessBuilder pb = new ProcessBuilder(enginePath, PathConstants.MAIN_MODE, tmpIn.getAbsolutePath(), tmpOut.getAbsolutePath());
+                    // Call Engine with SWAP_MODE
+                    ProcessBuilder pb = new ProcessBuilder(
+                            enginePath,
+                            PathConstants.SWAP_MODE,
+                            tmpIn.getAbsolutePath(),
+                            tmpOut.getAbsolutePath()
+                    );
 
                     pb.redirectErrorStream(true);
 
@@ -80,7 +75,7 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
                     try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                         String line;
                         while ((line = bufferedReader.readLine()) != null) {
-                            System.out.println("[ENGINE]: " + line);
+                            System.out.println("[SWAP-ENGINE]: " + line);
                         }
                     }
 
@@ -96,17 +91,13 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
                         throw new RuntimeException("[ERROR] Engine không sinh ra file output!");
                     }
 
-                    EngineOutput engineOutput;
+                    SwapEngineOutputProto swapOutputProto;
                     try (FileInputStream fis = new FileInputStream(tmpOut)) {
-                        engineOutput = EngineOutput.parseFrom(fis);
+                        swapOutputProto = SwapEngineOutputProto.parseFrom(fis);
                     }
 
-                    if (!engineOutput.getSuccess()) {
-                        throw new RuntimeException("[ERROR] Engine báo thất bại: " + engineOutput.getMessage());
-                    }
-
-                    // Convert Proto -> Map Java
-                    return ProtoMapper.fromEngineOutput(engineOutput);
+                    // Convert Proto -> Java Object using SwapperMapper
+                    return SwapperMapper.toJavaOutput(swapOutputProto);
 
                 } catch (IOException | InterruptedException | RuntimeException e) {
                     throw new RuntimeException(e);

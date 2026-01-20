@@ -1,7 +1,7 @@
 package application.repository;
 
-import application.models.ESession;
 import application.models.Session;
+import scheduler.common.models.ESession;
 
 import java.sql.*;
 import java.util.ArrayList;

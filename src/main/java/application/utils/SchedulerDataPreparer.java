@@ -2,6 +2,8 @@ package application.utils;
 
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
+import scheduler.common.models.ESession;
+import scheduler.common.models.EWeekDay;
 import scheduler.common.models.TaskData;
 
 import java.util.ArrayList;
@@ -104,7 +106,7 @@ public class SchedulerDataPreparer {
                     assign.getSubjectId(),
                     curr.getPeriodsPerWeek(),
                     curr.isShouldBeDoubled(),
-                    EnumMapper.toEngineSession(grade.getSession().getSessionName()),
+                    grade.getSession().getSessionName(),
                     grade.getLevel(),
                     teacher.getId(),
                     teacherMatrixClone,

@@ -2,6 +2,7 @@ package application.models;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import scheduler.common.models.EWeekDay;
 
 public class Teacher {
     private final ObservableList<Assignment> assignments = FXCollections.observableArrayList();
