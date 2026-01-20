@@ -14,12 +14,11 @@ import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
+import scheduler.common.models.ESession;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import scheduler.common.models.ESession;
 
 public class ClassConfigController {
     private final RepositoryOrchestrator repo;

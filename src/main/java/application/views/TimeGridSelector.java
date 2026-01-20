@@ -7,7 +7,6 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-
 import scheduler.common.models.ESession;
 
 public class TimeGridSelector extends VBox {

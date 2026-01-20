@@ -7,7 +7,10 @@ import scheduler.common.models.Slot;
 import scheduler.common.models.SwapEngineInput;
 import scheduler.common.models.SwapEngineItem;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class SwapperDataPreparer {
 
@@ -53,14 +56,14 @@ public class SwapperDataPreparer {
             // Prepare Teacher Matrix (Static + Schedule)
             if (!teacherMatrices.containsKey(item.teacherId())) {
                 boolean[][] combinedMatrix = new boolean[6][10];
-                
+
                 // Static
                 Teacher t = repo.getTeacherRepository().getById(item.teacherId());
                 if (t != null) {
                     boolean[][] staticM = t.getBusyMatrix();
-                    for(int d=0; d<6; d++) 
-                        for(int p=0; p<10; p++) 
-                            if(staticM[d][p]) combinedMatrix[d][p] = true;
+                    for (int d = 0; d < 6; d++)
+                        for (int p = 0; p < 10; p++)
+                            if (staticM[d][p]) combinedMatrix[d][p] = true;
                 }
 
                 // Schedule (excluding current class)

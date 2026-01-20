@@ -1,7 +1,9 @@
 package application.services;
 
+import application.models.Constants;
 import javafx.concurrent.Service;
 import javafx.concurrent.Task;
+import scheduler.common.constants.PathConstants;
 import scheduler.common.models.Slot;
 import scheduler.common.models.TaskData;
 import scheduler.common.models.Variable;
@@ -69,7 +71,7 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
                         throw new FileNotFoundException("Engine JAR not found at: " + enginePath);
                     }
 
-                    ProcessBuilder pb = new ProcessBuilder(enginePath, tmpIn.getAbsolutePath(), tmpOut.getAbsolutePath());
+                    ProcessBuilder pb = new ProcessBuilder(enginePath, PathConstants.MAIN_MODE, tmpIn.getAbsolutePath(), tmpOut.getAbsolutePath());
 
                     pb.redirectErrorStream(true);
 

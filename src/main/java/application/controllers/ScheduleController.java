@@ -2,9 +2,9 @@ package application.controllers;
 
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
+import application.services.SwapEngineService;
 import application.utils.ExcelExporter;
 import application.utils.SwapperDataPreparer;
-import application.services.SwapEngineService;
 import javafx.collections.FXCollections;
 import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
@@ -19,11 +19,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
-import scheduler.common.models.Slot;
-import scheduler.common.models.EWeekDay;
-import scheduler.common.models.ESession;
-import scheduler.common.models.SwapEngineInput;
-import scheduler.common.models.SwapEngineOutput;
+import scheduler.common.models.*;
 
 import java.io.File;
 import java.time.LocalDate;
@@ -63,7 +59,7 @@ public class ScheduleController {
     public void initialize() {
         initGridStructure();
         setupSidebar();
-        
+
         // Ensure Grid is interactive
         scheduleGrid.setPickOnBounds(true);
         scheduleGrid.setMouseTransparent(false);
@@ -284,7 +280,7 @@ public class ScheduleController {
                 emptyCell.setStyle("-fx-background-color: white;");
                 emptyCell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
                 emptyCell.setUserData("empty"); // Mark as empty slot
-                
+
                 makeDroppable(emptyCell);
                 scheduleGrid.add(emptyCell, col, row);
             }
@@ -303,7 +299,7 @@ public class ScheduleController {
         } else {
             rowIndex = period + 6;
         }
-        
+
         // Remove any empty slot pane at this position to avoid z-order issues
         removePaneAt(colIndex, rowIndex);
 
@@ -345,7 +341,7 @@ public class ScheduleController {
         scheduleGrid.add(cell, colIndex, rowIndex);
         cell.toFront(); // Ensure it's on top
     }
-    
+
     private void removePaneAt(int col, int row) {
         scheduleGrid.getChildren().removeIf(node -> {
             Integer r = GridPane.getRowIndex(node);
@@ -442,7 +438,7 @@ public class ScheduleController {
         });
 
         node.setOnDragDetected(event -> {
-            if ( Constants.SPECIAL_SUBJECTS.contains(subject.getId())) {
+            if (Constants.SPECIAL_SUBJECTS.contains(subject.getId())) {
                 showRestrictionAlert(subject.getName());
                 event.consume();
                 return;
@@ -481,22 +477,22 @@ public class ScheduleController {
                 }
 
                 Node source = (Node) event.getGestureSource();
-                
+
                 // Get Source Item
                 CellData sourceData = (CellData) source.getUserData();
                 ScheduleItem sourceItem = sourceData.item();
-                
+
                 // Get Target Slot Info
                 Integer targetRow = GridPane.getRowIndex(target);
                 Integer targetCol = GridPane.getColumnIndex(target);
-                
+
                 if (targetRow != null && targetCol != null) {
                     // Convert grid coords to Slot info
                     EWeekDay targetDay = EWeekDay.values()[targetCol - 1];
                     ESession targetSession = (targetRow <= 5) ? ESession.MORNING : ESession.AFTERNOON;
                     int targetPeriod = (targetRow <= 5) ? targetRow : targetRow - 6;
                     Slot targetSlot = new Slot(targetDay, targetSession, targetPeriod);
-                    
+
                     // Handle Logic
                     handleManualScheduleUpdate(sourceItem, targetSlot);
                     success = true;
@@ -513,14 +509,14 @@ public class ScheduleController {
         if (t != null) {
             int pIndex = (targetSlot.session() == ESession.MORNING) ? (targetSlot.period() - 1) : (targetSlot.period() + 5 - 1);
             if (t.getBusyMatrix()[targetSlot.day().ordinal()][pIndex]) {
-                 showAlert("Giáo viên bận", "Giáo viên " + t.getName() + " bận (Lịch cá nhân) vào thời gian này.");
-                 return;
+                showAlert("Giáo viên bận", "Giáo viên " + t.getName() + " bận (Lịch cá nhân) vào thời gian này.");
+                return;
             }
         }
 
         if (repo.getScheduleRepository().isTeacherBusyExceptClass(source.teacherId(), source.classId(), targetSlot.day(), targetSlot.session(), targetSlot.period())) {
-             showAlert("Giáo viên bận", "Giáo viên " + (t!=null?t.getName():source.teacherId()) + " đang dạy lớp khác vào thời gian này.");
-             return;
+            showAlert("Giáo viên bận", "Giáo viên " + (t != null ? t.getName() : source.teacherId()) + " đang dạy lớp khác vào thời gian này.");
+            return;
         }
 
         // 2. Run Swap Engine Service
@@ -561,7 +557,7 @@ public class ScheduleController {
         // 3. Show Confirmation with Chain Reaction Details
         StringBuilder msg = new StringBuilder();
         msg.append("Xác nhận thay đổi lịch (Tìm thấy phương án tối ưu):\n\n");
-        
+
         for (Map.Entry<Integer, Slot> entry : changes.entrySet()) {
             // Find item name (Need to query DB or pass map, but for now let's just show count or simple info)
             // Ideally we should map ID back to Subject Name
@@ -576,22 +572,22 @@ public class ScheduleController {
                     subjectName = item.subjectId();
                 }
             }
-            
+
             msg.append("- [").append(subjectName).append("] sẽ chuyển sang ").append(entry.getValue().day()).append(" - Tiết ").append(entry.getValue().period()).append("\n");
         }
-        
+
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
         confirm.setTitle("Xác nhận thay đổi");
         confirm.setHeaderText("Phát hiện thay đổi lịch học (Chuỗi hoán đổi)");
         confirm.setContentText(msg.toString());
-        
+
         Optional<ButtonType> result = confirm.showAndWait();
         if (result.isPresent() && result.get() == ButtonType.OK) {
             // 4. Update DB
             for (Map.Entry<Integer, Slot> entry : changes.entrySet()) {
                 repo.getScheduleRepository().updateSlot(entry.getKey(), entry.getValue().day(), entry.getValue().session(), entry.getValue().period());
             }
-            
+
             // 5. Refresh UI
             Object selected = listViewItems.getSelectionModel().getSelectedItem();
             if (selected != null) {
@@ -599,7 +595,7 @@ public class ScheduleController {
             }
         }
     }
-    
+
     private boolean isRestrictedTarget(Node target) {
         if (target instanceof VBox) {
             Object data = target.getUserData();
@@ -614,7 +610,7 @@ public class ScheduleController {
     private void showRestrictionAlert(String subjectName) {
         showAlert("Hạn chế", "Không thể di chuyển " + subjectName);
     }
-    
+
     private void showAlert(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.WARNING);
         alert.setTitle(title);
@@ -622,7 +618,8 @@ public class ScheduleController {
         alert.setContentText(content);
         alert.show();
     }
-    
+
     // Inner record to store cell data
-    record CellData(ScheduleItem item, String subjectName) {}
+    record CellData(ScheduleItem item, String subjectName) {
+    }
 }

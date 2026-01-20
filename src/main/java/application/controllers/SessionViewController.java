@@ -10,10 +10,9 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.StackPane;
+import scheduler.common.models.ESession;
 
 import java.util.List;
-
-import scheduler.common.models.ESession;
 
 public class SessionViewController {
 

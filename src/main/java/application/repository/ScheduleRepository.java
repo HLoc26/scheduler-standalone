@@ -1,8 +1,8 @@
 package application.repository;
 
+import application.models.ScheduleItem;
 import scheduler.common.models.ESession;
 import scheduler.common.models.EWeekDay;
-import application.models.ScheduleItem;
 import scheduler.common.models.Slot;
 import scheduler.common.models.Variable;
 

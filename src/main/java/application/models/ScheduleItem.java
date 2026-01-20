@@ -1,7 +1,7 @@
 package application.models;
 
-import scheduler.common.models.EWeekDay;
 import scheduler.common.models.ESession;
+import scheduler.common.models.EWeekDay;
 
 public record ScheduleItem(
         int id,

@@ -63,8 +63,8 @@ public class SwapEngineService extends Service<SwapEngineOutput> {
                     // Call Engine with SWAP_MODE
                     ProcessBuilder pb = new ProcessBuilder(
                             enginePath,
-                            PathConstants.SWAP_MODE, 
-                            tmpIn.getAbsolutePath(), 
+                            PathConstants.SWAP_MODE,
+                            tmpIn.getAbsolutePath(),
                             tmpOut.getAbsolutePath()
                     );
 
@@ -95,7 +95,7 @@ public class SwapEngineService extends Service<SwapEngineOutput> {
                     try (FileInputStream fis = new FileInputStream(tmpOut)) {
                         swapOutputProto = SwapEngineOutputProto.parseFrom(fis);
                     }
-                    
+
                     // Convert Proto -> Java Object using SwapperMapper
                     return SwapperMapper.toJavaOutput(swapOutputProto);
 

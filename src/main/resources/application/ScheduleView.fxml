@@ -74,7 +74,8 @@
                 <ScrollPane fx:id="scrollPaneSchedule" fitToHeight="true" fitToWidth="true" visible="false"
                             style="-fx-background-color: transparent; -fx-background: white;">
                     <content>
-                        <StackPane alignment="TOP_CENTER" style="-fx-background-color: white; -fx-padding: 20;" pickOnBounds="false">
+                        <StackPane alignment="TOP_CENTER" style="-fx-background-color: white; -fx-padding: 20;"
+                                   pickOnBounds="false">
                             <GridPane fx:id="scheduleGrid" hgap="2.0" vgap="2.0"
                                       style="-fx-background-color: white; -fx-border-color: #1e293b; -fx-border-width: 1">
                                 <padding>
