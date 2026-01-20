@@ -475,31 +475,25 @@ public class ScheduleController {
                 }
 
                 Node source = (Node) event.getGestureSource();
-
-                Integer sourceRow = GridPane.getRowIndex(source);
-                Integer sourceCol = GridPane.getColumnIndex(source);
+                
+                // Get Source Item
+                CellData sourceData = (CellData) source.getUserData();
+                ScheduleItem sourceItem = sourceData.item();
+                
+                // Get Target Slot Info
                 Integer targetRow = GridPane.getRowIndex(target);
                 Integer targetCol = GridPane.getColumnIndex(target);
-
-                if (sourceRow != null && sourceCol != null && targetRow != null && targetCol != null) {
-                    if (target instanceof VBox && source instanceof VBox) {
-                        // Swap
-                        GridPane.setRowIndex(source, targetRow);
-                        GridPane.setColumnIndex(source, targetCol);
-                        GridPane.setRowIndex(target, sourceRow);
-                        GridPane.setColumnIndex(target, sourceCol);
-                        success = true;
-                    } else if (target instanceof Pane && source instanceof VBox) {
-                        // Move VBox to Target Position
-                        GridPane.setRowIndex(source, targetRow);
-                        GridPane.setColumnIndex(source, targetCol);
-                        
-                        // Move Pane to Source Position (to act as placeholder there)
-                        GridPane.setRowIndex(target, sourceRow);
-                        GridPane.setColumnIndex(target, sourceCol);
-                        
-                        success = true;
-                    }
+                
+                if (targetRow != null && targetCol != null) {
+                    // Convert grid coords to Slot info
+                    EWeekDay targetDay = EWeekDay.values()[targetCol - 1];
+                    ESession targetSession = (targetRow <= 5) ? ESession.MORNING : ESession.AFTERNOON;
+                    int targetPeriod = (targetRow <= 5) ? targetRow : targetRow - 6;
+                    Slot targetSlot = new Slot(targetDay, targetSession, targetPeriod);
+                    
+                    // Handle Logic
+                    handleManualScheduleUpdate(sourceItem, targetSlot);
+                    success = true;
                 }
             }
             event.setDropCompleted(success);
@@ -507,22 +501,122 @@ public class ScheduleController {
         });
     }
 
+    private void handleManualScheduleUpdate(ScheduleItem source, Slot targetSlot) {
+        // 1. Validate Teacher Availability (Static & External)
+        Teacher t = repo.getTeacherRepository().getById(source.teacherId());
+        if (t != null) {
+            int pIndex = (targetSlot.session() == ESession.MORNING) ? (targetSlot.period() - 1) : (targetSlot.period() + 5 - 1);
+            if (t.getBusyMatrix()[targetSlot.day().ordinal()][pIndex]) {
+                 showAlert("Giáo viên bận", "Giáo viên " + t.getName() + " bận (Lịch cá nhân) vào thời gian này.");
+                 return;
+            }
+        }
+
+        if (repo.getScheduleRepository().isTeacherBusyExceptClass(source.teacherId(), source.classId(), targetSlot.day(), targetSlot.session(), targetSlot.period())) {
+             showAlert("Giáo viên bận", "Giáo viên " + (t!=null?t.getName():source.teacherId()) + " đang dạy lớp khác vào thời gian này.");
+             return;
+        }
+
+        // 2. Run Swap Engine Service
+        SwapperDataPreparer solver = new SwapperDataPreparer(repo);
+        SwapEngineInput input = solver.prepareInput(source.classId(), source, targetSlot);
+
+        SwapEngineService service = new SwapEngineService();
+        service.setInputData(input);
+
+        Alert loadingAlert = new Alert(Alert.AlertType.INFORMATION);
+        loadingAlert.setTitle("Đang xử lý");
+        loadingAlert.setHeaderText("Đang tìm phương án hoán đổi...");
+        loadingAlert.setContentText("Vui lòng đợi...");
+        loadingAlert.getDialogPane().lookupButton(ButtonType.OK).setVisible(false);
+        loadingAlert.show();
+
+        service.setOnSucceeded(event -> {
+            loadingAlert.close();
+            SwapEngineOutput output = service.getValue();
+            if (output != null && output.success()) {
+                showConfirmationDialog(output.changes());
+            } else {
+                showAlert("Không thể di chuyển", "Không tìm được phương án hoán đổi hợp lệ (Ràng buộc giáo viên hoặc môn học).");
+            }
+        });
+
+        service.setOnFailed(event -> {
+            loadingAlert.close();
+            Throwable ex = service.getException();
+            ex.printStackTrace();
+            showAlert("Lỗi", "Lỗi khi chạy engine: " + ex.getMessage());
+        });
+
+        service.start();
+    }
+
+    private void showConfirmationDialog(Map<Integer, Slot> changes) {
+        // 3. Show Confirmation with Chain Reaction Details
+        StringBuilder msg = new StringBuilder();
+        msg.append("Xác nhận thay đổi lịch (Tìm thấy phương án tối ưu):\n\n");
+        
+        for (Map.Entry<Integer, Slot> entry : changes.entrySet()) {
+            // Find item name (Need to query DB or pass map, but for now let's just show count or simple info)
+            // Ideally we should map ID back to Subject Name
+            // For simplicity in this prompt context, we just list the moves.
+            ScheduleItem item = repo.getScheduleRepository().getById(entry.getKey());
+            String subjectName = "Unknown";
+            if (item != null) {
+                Subject s = repo.getSubjectRepository().getById(item.subjectId());
+                if (s != null) {
+                    subjectName = s.getName();
+                } else {
+                    subjectName = item.subjectId();
+                }
+            }
+            
+            msg.append("- [").append(subjectName).append("] sẽ chuyển sang ").append(entry.getValue().day()).append(" - Tiết ").append(entry.getValue().period()).append("\n");
+        }
+        
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Xác nhận thay đổi");
+        confirm.setHeaderText("Phát hiện thay đổi lịch học (Chuỗi hoán đổi)");
+        confirm.setContentText(msg.toString());
+        
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            // 4. Update DB
+            for (Map.Entry<Integer, Slot> entry : changes.entrySet()) {
+                repo.getScheduleRepository().updateSlot(entry.getKey(), entry.getValue().day(), entry.getValue().session(), entry.getValue().period());
+            }
+            
+            // 5. Refresh UI
+            Object selected = listViewItems.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                renderSchedule(selected);
+            }
+        }
+    }
+    
     private boolean isRestrictedTarget(Node target) {
         if (target instanceof VBox) {
             Object data = target.getUserData();
-            if (data instanceof String) {
-                String s = (String) data;
-                return "Sinh hoạt lớp".equalsIgnoreCase(s) || "Chào cờ".equalsIgnoreCase(s);
+            if (data instanceof CellData) {
+                String s = ((CellData) data).item.subjectId();
+                return Constants.SPECIAL_SUBJECTS.contains(s);
             }
         }
         return false;
     }
 
     private void showRestrictionAlert(String subjectName) {
+        showAlert("Hạn chế", "Không thể di chuyển " + subjectName);
+    }
+    
+    private void showAlert(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.WARNING);
-        alert.setTitle("Hạn chế");
+        alert.setTitle(title);
         alert.setHeaderText(null);
-        alert.setContentText("Không thể di chuyển " + subjectName);
+        alert.setContentText(content);
         alert.show();
     }
+    
+    // Inner record to store cell data
+    record CellData(ScheduleItem item, String subjectName) {}
 }
