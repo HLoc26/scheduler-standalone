@@ -1,11 +1,6 @@
 package application.utils;
 
-import application.models.Clazz;
-import application.models.Grade;
-import application.models.ScheduleItem;
-import application.models.Session;
-import application.models.Subject;
-import application.models.Teacher;
+import application.models.*;
 import application.repository.RepositoryOrchestrator;
 import scheduler.common.models.ESession;
 import scheduler.common.models.Slot;
@@ -43,9 +38,7 @@ public class SwapperDataPreparer {
 
         for (ScheduleItem item : classItems) {
             // Check if fixed
-            Subject subject = repo.getSubjectRepository().getById(item.subjectId());
-            String subjectName = (subject != null) ? subject.getName() : "";
-            boolean isFixed = "Sinh hoạt lớp".equalsIgnoreCase(subjectName) || "Chào cờ".equalsIgnoreCase(subjectName);
+            boolean isFixed = Constants.SPECIAL_SUBJECTS.contains(item.subjectId());
 
             solverItems.add(new SwapEngineItem(
                     item.id(),

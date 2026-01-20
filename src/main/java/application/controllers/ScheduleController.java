@@ -3,6 +3,8 @@ package application.controllers;
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
 import application.utils.ExcelExporter;
+import application.utils.SwapperDataPreparer;
+import application.services.SwapEngineService;
 import javafx.collections.FXCollections;
 import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
@@ -17,6 +19,11 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import scheduler.common.models.Slot;
+import scheduler.common.models.EWeekDay;
+import scheduler.common.models.ESession;
+import scheduler.common.models.SwapEngineInput;
+import scheduler.common.models.SwapEngineOutput;
 
 import java.io.File;
 import java.time.LocalDate;
@@ -240,8 +247,7 @@ public class ScheduleController {
 
             // Get Subject Name
             String subjectName = item.subjectId();
-            Subject s = repo.getSubjectRepository().getById(item.subjectId());
-            if (s != null) subjectName = s.getName();
+            Subject subject = repo.getSubjectRepository().getById(item.subjectId());
 
             // Get Teacher Name
             String teacherName = "";
@@ -259,7 +265,7 @@ public class ScheduleController {
                 if (isConsecutive(item, next)) isDouble = true;
             }
 
-            drawLessonCell(dayInt, item.period(), subjectName, teacherName, className, isDouble, session);
+            drawLessonCell(dayInt, item.period(), subject, teacherName, className, isDouble, session, item);
         }
     }
 
@@ -288,7 +294,7 @@ public class ScheduleController {
     /**
      * Draws a specific lesson cell.
      */
-    private void drawLessonCell(int day, int period, String subject, String teacher, String className, boolean isDouble, ESession session) {
+    private void drawLessonCell(int day, int period, Subject subject, String teacher, String className, boolean isDouble, ESession session, ScheduleItem item) {
 
         int colIndex = day - 1; // Col 1 -> Monday
         int rowIndex;
@@ -303,9 +309,9 @@ public class ScheduleController {
 
         VBox cell = new VBox(2);
         cell.setAlignment(Pos.CENTER);
-        cell.setUserData(subject); // Store subject name for validation
+        cell.setUserData(new CellData(item, subject.getName())); // Store full item and subject name
 
-        Label lblSub = new Label(subject);
+        Label lblSub = new Label(subject.getName());
         lblSub.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #2c3e50;");
         lblSub.setMouseTransparent(true);
 
@@ -321,7 +327,7 @@ public class ScheduleController {
         // Determine Background Color
         String bgStyle = "-fx-background-color: #f5f5f5;";
         if (isDouble) bgStyle = "-fx-background-color: #d4efdf;"; // Light mint
-        if ("Sinh hoạt lớp".equalsIgnoreCase(subject) || "Chào cờ".equalsIgnoreCase(subject))
+        if (Constants.SPECIAL_SUBJECTS.contains(subject.getId()))
             bgStyle = "-fx-background-color: #fadbd8;"; // Light red
 
         // Apply style (Background ONLY, no border)
@@ -430,14 +436,14 @@ public class ScheduleController {
         });
     }
 
-    private void makeDraggable(Node node, String subjectName) {
+    private void makeDraggable(Node node, Subject subject) {
         node.setOnMousePressed(event -> {
             event.consume(); // Prevent ScrollPane from stealing the event
         });
 
         node.setOnDragDetected(event -> {
-            if ("Sinh hoạt lớp".equalsIgnoreCase(subjectName) || "Chào cờ".equalsIgnoreCase(subjectName)) {
-                showRestrictionAlert(subjectName);
+            if ( Constants.SPECIAL_SUBJECTS.contains(subject.getId())) {
+                showRestrictionAlert(subject.getName());
                 event.consume();
                 return;
             }
