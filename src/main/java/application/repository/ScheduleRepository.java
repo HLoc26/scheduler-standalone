@@ -79,6 +79,61 @@ public class ScheduleRepository implements IRepository {
         }
     }
 
+    public List<ScheduleItem> getAll() {
+        String sql = "SELECT s.id, s.assignment_id, s.day, s.session, s.period, a.subject_id, a.class_id, a.teacher_id " +
+                "FROM schedules s " +
+                "JOIN assignments a ON s.assignment_id = a.id";
+        List<ScheduleItem> items = new ArrayList<>();
+        try (
+                Connection conn = databaseHandler.getConnection();
+                Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery(sql)
+        ) {
+            while (rs.next()) {
+                items.add(new ScheduleItem(
+                        rs.getInt("id"),
+                        rs.getString("assignment_id"),
+                        rs.getString("subject_id"),
+                        rs.getString("class_id"),
+                        rs.getString("teacher_id"),
+                        EWeekDay.valueOf(rs.getString("day")),
+                        ESession.valueOf(rs.getString("session")),
+                        rs.getInt("period")
+                ));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return items;
+    }
+
+    public ScheduleItem getById(int id) {
+        String sql = "SELECT s.id, s.assignment_id, s.day, s.session, s.period, a.subject_id, a.class_id, a.teacher_id " +
+                "FROM schedules s " +
+                "JOIN assignments a ON s.assignment_id = a.id " +
+                "WHERE s.id = ?";
+        try (Connection conn = databaseHandler.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return new ScheduleItem(
+                        rs.getInt("id"),
+                        rs.getString("assignment_id"),
+                        rs.getString("subject_id"),
+                        rs.getString("class_id"),
+                        rs.getString("teacher_id"),
+                        EWeekDay.valueOf(rs.getString("day")),
+                        ESession.valueOf(rs.getString("session")),
+                        rs.getInt("period")
+                );
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
     public List<ScheduleItem> getByClassId(String classId) {
         String sql = "SELECT s.id, s.assignment_id, s.day, s.session, s.period, a.subject_id, a.class_id, a.teacher_id " +
                 "FROM schedules s " +
@@ -131,6 +186,27 @@ public class ScheduleRepository implements IRepository {
             ps.setString(2, day.name());
             ps.setString(3, session.name());
             ps.setInt(4, period);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return false;
+    }
+
+    public boolean isTeacherBusyExceptClass(String teacherId, String classId, EWeekDay day, ESession session, int period) {
+        String sql = "SELECT count(*) FROM schedules s " +
+                "JOIN assignments a ON s.assignment_id = a.id " +
+                "WHERE a.teacher_id = ? AND a.class_id != ? AND s.day = ? AND s.session = ? AND s.period = ?";
+        try (Connection conn = databaseHandler.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, teacherId);
+            ps.setString(2, classId);
+            ps.setString(3, day.name());
+            ps.setString(4, session.name());
+            ps.setInt(5, period);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
                 return rs.getInt(1) > 0;
