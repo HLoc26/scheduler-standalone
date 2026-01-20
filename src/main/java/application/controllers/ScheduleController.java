@@ -132,7 +132,6 @@ public class ScheduleController {
     @FXML
     public void onTabChanged() {
         txtSearch.clear(); // Clear search when switching tabs
-        txtSearch.clear();
         if (btnTabTeacher.isSelected()) {
             loadSidebarData("teacher");
         } else {
@@ -307,7 +306,6 @@ public class ScheduleController {
         VBox cell = new VBox(2);
         cell.setAlignment(Pos.CENTER);
         cell.setUserData(new CellData(item, subject.getName())); // Store full item and subject name
-        cell.setUserData(new CellData(item, subject.getName()));
 
         Label lblSub = new Label(subject.getName());
         lblSub.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #2c3e50;");
@@ -325,19 +323,15 @@ public class ScheduleController {
         // Determine Background Color
         String bgStyle = "-fx-background-color: #f5f5f5;";
         if (isDouble) bgStyle = "-fx-background-color: #d4efdf;"; // Light mint
-        if (isDouble) bgStyle = "-fx-background-color: #d4efdf;";
         if (Constants.SPECIAL_SUBJECTS.contains(subject.getId()))
             bgStyle = "-fx-background-color: #fadbd8;"; // Light red
-        bgStyle = "-fx-background-color: #fadbd8;";
 
-        // Apply style (Background ONLY, no border)
         // Apply style
         cell.setStyle(bgStyle);
 
         // Force cell to fill the grid slot
         cell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
         cell.setPickOnBounds(true); // Ensure clicks are registered
-        cell.setPickOnBounds(true);
         cell.setMouseTransparent(false);
 
         makeDraggable(cell, subject);
@@ -346,7 +340,6 @@ public class ScheduleController {
         // Add to grid
         scheduleGrid.add(cell, colIndex, rowIndex);
         cell.toFront(); // Ensure it's on top
-        cell.toFront();
     }
 
     private void removePaneAt(int col, int row) {
@@ -564,23 +557,42 @@ public class ScheduleController {
 
         for (Map.Entry<Integer, Slot> entry : changes.entrySet()) {
             ScheduleItem item = repo.getScheduleRepository().getById(entry.getKey());
-            String subjectName = "Unknown";
-            if (item != null) {
-                Subject s = repo.getSubjectRepository().getById(item.subjectId());
-                if (s != null) {
-                    subjectName = s.getName();
-                } else {
-                    subjectName = item.subjectId();
-                }
-            }
+            if (item == null) continue;
 
-            msg.append("- [").append(subjectName).append("] sẽ chuyển sang ").append(entry.getValue().day()).append(" - Tiết ").append(entry.getValue().period()).append("\n");
+            // Subject Name
+            String subjectName = item.subjectId();
+            Subject s = repo.getSubjectRepository().getById(item.subjectId());
+            if (s != null) subjectName = s.getName();
+
+            // Class Name
+            String className = item.classId();
+            Clazz c = repo.getClassRepository().getById(item.classId());
+            if (c != null) className = c.getClassName();
+
+            // Teacher Name
+            String teacherName = item.teacherId();
+            Teacher t = repo.getTeacherRepository().getById(item.teacherId());
+            if (t != null) teacherName = t.getName();
+
+            // Old Slot
+            String oldDay = getDayName(item.day());
+            int oldPeriod = getAbsolutePeriod(item.session(), item.period());
+
+            // New Slot
+            Slot newSlot = entry.getValue();
+            String newDay = getDayName(newSlot.day());
+            int newPeriod = getAbsolutePeriod(newSlot.session(), newSlot.period());
+
+            msg.append(String.format("- Lớp %s: [%s] (%s)\n", className, subjectName, teacherName));
+            msg.append(String.format("  Từ: %s - Tiết %d  --->  Đến: %s - Tiết %d\n\n",
+                    oldDay, oldPeriod, newDay, newPeriod));
         }
 
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
         confirm.setTitle("Xác nhận thay đổi");
         confirm.setHeaderText("Phát hiện thay đổi lịch học (Chuỗi hoán đổi)");
         confirm.setContentText(msg.toString());
+        confirm.getDialogPane().setMinHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
 
         Optional<ButtonType> result = confirm.showAndWait();
         if (result.isPresent() && result.get() == ButtonType.OK) {
@@ -594,6 +606,26 @@ public class ScheduleController {
             if (selected != null) {
                 renderSchedule(selected);
             }
+        }
+    }
+
+    private String getDayName(EWeekDay day) {
+        return switch (day) {
+            case MONDAY -> "Thứ 2";
+            case TUESDAY -> "Thứ 3";
+            case WEDNESDAY -> "Thứ 4";
+            case THURSDAY -> "Thứ 5";
+            case FRIDAY -> "Thứ 6";
+            case SATURDAY -> "Thứ 7";
+            default -> day.toString();
+        };
+    }
+
+    private int getAbsolutePeriod(ESession session, int period) {
+        if (session == ESession.MORNING) {
+            return period;
+        } else {
+            return period + 5;
         }
     }
 
@@ -624,4 +656,3 @@ public class ScheduleController {
     record CellData(ScheduleItem item, String subjectName) {
     }
 }
-
