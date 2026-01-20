@@ -7,6 +7,7 @@ import application.utils.ExcelExporter;
 import application.utils.SwapperDataPreparer;
 import javafx.collections.FXCollections;
 import javafx.collections.transformation.FilteredList;
+import javafx.event.Event;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -69,7 +70,7 @@ public class ScheduleController {
      * Sets up the Sidebar logic: CellFactory, Selection Listener, and Search Listener.
      */
     private void setupSidebar() {
-        // 1. Custom CellFactory to display proper names for Teacher or Class objects
+        // Custom CellFactory to display proper names for Teacher or Class objects
         listViewItems.setCellFactory(lv -> new ListCell<>() {
             @Override
             protected void updateItem(Object item, boolean empty) {
@@ -89,7 +90,7 @@ public class ScheduleController {
             }
         });
 
-        // 2. Handle Item Selection
+        // Handle Item Selection
         listViewItems.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 // Show Schedule, Hide Placeholder
@@ -103,7 +104,7 @@ public class ScheduleController {
             }
         });
 
-        // 3. Handle Search/Filtering
+        // Handle Search/Filtering
         txtSearch.textProperty().addListener((obs, oldVal, newVal) -> {
             if (filteredData != null) {
                 filteredData.setPredicate(item -> {
@@ -121,7 +122,7 @@ public class ScheduleController {
             }
         });
 
-        // 4. Initial Load (Default to Teacher tab)
+        // Initial Load (Default to Teacher tab)
         loadSidebarData("teacher");
     }
 
@@ -131,6 +132,7 @@ public class ScheduleController {
     @FXML
     public void onTabChanged() {
         txtSearch.clear(); // Clear search when switching tabs
+        txtSearch.clear();
         if (btnTabTeacher.isSelected()) {
             loadSidebarData("teacher");
         } else {
@@ -154,7 +156,7 @@ public class ScheduleController {
         filteredData = new FilteredList<>(FXCollections.observableArrayList(data), p -> true);
         listViewItems.setItems(filteredData);
 
-        // Auto-select the first item if data exists (UI UX improvement)
+        // Auto-select the first item if data exists
         if (!filteredData.isEmpty()) {
             listViewItems.getSelectionModel().selectFirst();
         } else {
@@ -168,7 +170,7 @@ public class ScheduleController {
     private void initGridStructure() {
         String[] days = {"Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"};
 
-        // Draw Column Headers (Days)
+        // Column Headers (Days)
         for (int i = 0; i < days.length; i++) {
             Label lbl = new Label(days[i]);
             lbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50;");
@@ -177,7 +179,7 @@ public class ScheduleController {
             scheduleGrid.add(cell, i + 1, 0);
         }
 
-        // Draw Row Headers (Periods)
+        // Row Headers (Periods)
         for (int i = 1; i <= 10; i++) {
             Label lbl = new Label("Tiết " + i);
             lbl.setStyle("-fx-text-fill: #7f8c8d;");
@@ -187,7 +189,7 @@ public class ScheduleController {
             scheduleGrid.add(cell, 0, rowIndex);
         }
 
-        // Draw Lunch Break Row
+        // Lunch Break Row
         Label lblBreak = new Label("NGHỈ TRƯA");
         lblBreak.setStyle("-fx-font-weight: bold; -fx-text-fill: white; -fx-font-size: 15px; -fx-letter-spacing: 2px;");
         StackPane breakCell = new StackPane(lblBreak);
@@ -199,7 +201,7 @@ public class ScheduleController {
      * Renders the schedule for the selected Teacher or Class.
      */
     private void renderSchedule(Object filterEntity) {
-        // 1. Clear old data (Keep headers: Row 0, Col 0, and Lunch Row 6)
+        // Clear old data (Keep headers: Row 0, Col 0, and Lunch Row 6)
         scheduleGrid.getChildren().removeIf(node -> {
             Integer r = GridPane.getRowIndex(node);
             Integer c = GridPane.getColumnIndex(node);
@@ -208,10 +210,10 @@ public class ScheduleController {
             return !isHeader;
         });
 
-        // 2. Fill empty slots with white background (Crucial for "Gap Technique" borders)
+        // Fill empty slots with white background
         fillEmptySlots();
 
-        // 3. Fetch lessons
+        // Fetch lessons
         List<ScheduleItem> lessons;
         if (filterEntity instanceof Clazz) {
             lessons = repo.getScheduleRepository().getByClassId(((Clazz) filterEntity).getId());
@@ -221,18 +223,18 @@ public class ScheduleController {
             return;
         }
 
-        // 4. Sort by day, then by period
+        // Sort by day, then by period
         lessons.sort(Comparator.comparing(ScheduleItem::day)
                 .thenComparingInt(ScheduleItem::period));
 
-        // 5. Draw each lesson
+        // Draw each lesson
         for (int i = 0; i < lessons.size(); i++) {
             ScheduleItem item = lessons.get(i);
 
             Clazz c = repo.getClassRepository().getById(item.classId());
             String className = (c != null) ? c.getClassName() : "Unknown";
 
-            ESession session = ESession.MORNING; // Default
+            ESession session = ESession.MORNING;
             if (c != null) {
                 Grade g = repo.getGradeRepository().getById(c.getGradeId());
                 if (g != null) {
@@ -242,7 +244,6 @@ public class ScheduleController {
             int dayInt = item.day().ordinal() + 2;
 
             // Get Subject Name
-            String subjectName = item.subjectId();
             Subject subject = repo.getSubjectRepository().getById(item.subjectId());
 
             // Get Teacher Name
@@ -276,7 +277,7 @@ public class ScheduleController {
         for (int col = 1; col <= days; col++) {
             for (int row : periods) {
                 Pane emptyCell = new Pane();
-                // Just white background. No borders.
+                // White background
                 emptyCell.setStyle("-fx-background-color: white;");
                 emptyCell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
                 emptyCell.setUserData("empty"); // Mark as empty slot
@@ -300,12 +301,13 @@ public class ScheduleController {
             rowIndex = period + 6;
         }
 
-        // Remove any empty slot pane at this position to avoid z-order issues
+        // Remove empty slot pane to avoid z-order issues
         removePaneAt(colIndex, rowIndex);
 
         VBox cell = new VBox(2);
         cell.setAlignment(Pos.CENTER);
         cell.setUserData(new CellData(item, subject.getName())); // Store full item and subject name
+        cell.setUserData(new CellData(item, subject.getName()));
 
         Label lblSub = new Label(subject.getName());
         lblSub.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #2c3e50;");
@@ -323,15 +325,19 @@ public class ScheduleController {
         // Determine Background Color
         String bgStyle = "-fx-background-color: #f5f5f5;";
         if (isDouble) bgStyle = "-fx-background-color: #d4efdf;"; // Light mint
+        if (isDouble) bgStyle = "-fx-background-color: #d4efdf;";
         if (Constants.SPECIAL_SUBJECTS.contains(subject.getId()))
             bgStyle = "-fx-background-color: #fadbd8;"; // Light red
+        bgStyle = "-fx-background-color: #fadbd8;";
 
         // Apply style (Background ONLY, no border)
+        // Apply style
         cell.setStyle(bgStyle);
 
         // Force cell to fill the grid slot
         cell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
         cell.setPickOnBounds(true); // Ensure clicks are registered
+        cell.setPickOnBounds(true);
         cell.setMouseTransparent(false);
 
         makeDraggable(cell, subject);
@@ -340,6 +346,7 @@ public class ScheduleController {
         // Add to grid
         scheduleGrid.add(cell, colIndex, rowIndex);
         cell.toFront(); // Ensure it's on top
+        cell.toFront();
     }
 
     private void removePaneAt(int col, int row) {
@@ -372,7 +379,7 @@ public class ScheduleController {
 
     @FXML
     public void handleExportExcel() {
-        // 1. Ask for Start Date
+        // Ask for Start Date
         Dialog<LocalDate> dialog = new Dialog<>();
         dialog.setTitle("Chọn ngày bắt đầu");
         dialog.setHeaderText("Vui lòng chọn ngày bắt đầu áp dụng thời khóa biểu");
@@ -401,7 +408,7 @@ public class ScheduleController {
         Optional<LocalDate> result = dialog.showAndWait();
 
         result.ifPresent(localDate -> {
-            // 2. Choose File
+            // Choose File
             FileChooser fileChooser = new FileChooser();
             fileChooser.setTitle("Lưu file Excel");
             fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Excel Files", "*.xlsx"));
@@ -433,9 +440,8 @@ public class ScheduleController {
     }
 
     private void makeDraggable(Node node, Subject subject) {
-        node.setOnMousePressed(event -> {
-            event.consume(); // Prevent ScrollPane from stealing the event
-        });
+        // Prevent ScrollPane from stealing the event
+        node.setOnMousePressed(Event::consume);
 
         node.setOnDragDetected(event -> {
             if (Constants.SPECIAL_SUBJECTS.contains(subject.getId())) {
@@ -451,9 +457,7 @@ public class ScheduleController {
             event.consume();
         });
 
-        node.setOnDragDone(event -> {
-            event.consume();
-        });
+        node.setOnDragDone(Event::consume);
     }
 
     private void makeDroppable(Node target) {
@@ -468,7 +472,7 @@ public class ScheduleController {
             Dragboard db = event.getDragboard();
             boolean success = false;
             if (db.hasString()) {
-                // Check if target is a restricted lesson
+                // Check restricted lesson
                 if (isRestrictedTarget(target)) {
                     showRestrictionAlert("tiết cố định (Chào cờ / SH Lớp)");
                     event.setDropCompleted(false);
@@ -478,16 +482,16 @@ public class ScheduleController {
 
                 Node source = (Node) event.getGestureSource();
 
-                // Get Source Item
+                // Source Item
                 CellData sourceData = (CellData) source.getUserData();
                 ScheduleItem sourceItem = sourceData.item();
 
-                // Get Target Slot Info
+                // Target Slot Info
                 Integer targetRow = GridPane.getRowIndex(target);
                 Integer targetCol = GridPane.getColumnIndex(target);
 
                 if (targetRow != null && targetCol != null) {
-                    // Convert grid coords to Slot info
+                    // Convert grid coords to Slot
                     EWeekDay targetDay = EWeekDay.values()[targetCol - 1];
                     ESession targetSession = (targetRow <= 5) ? ESession.MORNING : ESession.AFTERNOON;
                     int targetPeriod = (targetRow <= 5) ? targetRow : targetRow - 6;
@@ -504,7 +508,7 @@ public class ScheduleController {
     }
 
     private void handleManualScheduleUpdate(ScheduleItem source, Slot targetSlot) {
-        // 1. Validate Teacher Availability (Static & External)
+        // Validate Teacher Availability
         Teacher t = repo.getTeacherRepository().getById(source.teacherId());
         if (t != null) {
             int pIndex = (targetSlot.session() == ESession.MORNING) ? (targetSlot.period() - 1) : (targetSlot.period() + 5 - 1);
@@ -519,7 +523,7 @@ public class ScheduleController {
             return;
         }
 
-        // 2. Run Swap Engine Service
+        // Run Swap Engine Service
         SwapperDataPreparer solver = new SwapperDataPreparer(repo);
         SwapEngineInput input = solver.prepareInput(source.classId(), source, targetSlot);
 
@@ -554,14 +558,11 @@ public class ScheduleController {
     }
 
     private void showConfirmationDialog(Map<Integer, Slot> changes) {
-        // 3. Show Confirmation with Chain Reaction Details
+        // Show Confirmation
         StringBuilder msg = new StringBuilder();
         msg.append("Xác nhận thay đổi lịch (Tìm thấy phương án tối ưu):\n\n");
 
         for (Map.Entry<Integer, Slot> entry : changes.entrySet()) {
-            // Find item name (Need to query DB or pass map, but for now let's just show count or simple info)
-            // Ideally we should map ID back to Subject Name
-            // For simplicity in this prompt context, we just list the moves.
             ScheduleItem item = repo.getScheduleRepository().getById(entry.getKey());
             String subjectName = "Unknown";
             if (item != null) {
@@ -583,12 +584,12 @@ public class ScheduleController {
 
         Optional<ButtonType> result = confirm.showAndWait();
         if (result.isPresent() && result.get() == ButtonType.OK) {
-            // 4. Update DB
+            // Update DB
             for (Map.Entry<Integer, Slot> entry : changes.entrySet()) {
                 repo.getScheduleRepository().updateSlot(entry.getKey(), entry.getValue().day(), entry.getValue().session(), entry.getValue().period());
             }
 
-            // 5. Refresh UI
+            // Refresh UI
             Object selected = listViewItems.getSelectionModel().getSelectedItem();
             if (selected != null) {
                 renderSchedule(selected);
@@ -623,3 +624,4 @@ public class ScheduleController {
     record CellData(ScheduleItem item, String subjectName) {
     }
 }
+
