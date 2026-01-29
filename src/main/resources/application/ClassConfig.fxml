@@ -114,7 +114,7 @@
                     <Separator/>
 
                     <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"
-                           text="3. Thời gian bận"/>
+                           text="Tiết nghỉ"/>
                     <StackPane fx:id="timeGridContainer" alignment="CENTER_LEFT"/>
                 </VBox>
             </ScrollPane>
