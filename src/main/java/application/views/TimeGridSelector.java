@@ -16,9 +16,9 @@ public class TimeGridSelector extends VBox {
     private final ToggleButton[][] cells;
     // UI String: Days of the week (Monday to Saturday)
     private final String[] DAYS = {"T2", "T3", "T4", "T5", "T6", "T7"};
-    private final ESession session;
     private int remainPeriods;
     private boolean isReadOnly = false;
+    private Label title;
 
 
     public TimeGridSelector() {
@@ -26,14 +26,13 @@ public class TimeGridSelector extends VBox {
     }
 
     public TimeGridSelector(ESession session) {
-        this.session = session;
         this.totalPeriods = 10;
         this.cells = new ToggleButton[6][totalPeriods];
         this.setSpacing(10);
         this.remainPeriods = DAYS.length * this.totalPeriods;
 
         // Title Label
-        Label title = new Label("Đăng ký tiết nghỉ (Bấm vào ô để chọn nghỉ)");
+        title = new Label("Đăng ký tiết nghỉ (Bấm vào ô để chọn nghỉ)");
         title.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #2c3e50;");
         HBox gridsContainer = new HBox(30); // Spacing between two grids
         gridsContainer.setAlignment(Pos.TOP_CENTER);
@@ -94,18 +93,17 @@ public class TimeGridSelector extends VBox {
             for (int day = 0; day < DAYS.length; day++) {
                 ToggleButton btn = new ToggleButton();
                 btn.setPrefSize(50, 40);
-                btn.setStyle("-fx-base: #e3f2fd;");
+                updateButtonStyle(btn);
 
                 btn.selectedProperty().addListener((obs, oldVal, newVal) -> {
                     if (newVal) {
-                        btn.setStyle("-fx-base: #ef9a9a; -fx-text-fill: red; -fx-font-weight: bold;");
                         btn.setText("X");
                         remainPeriods--;
                     } else {
-                        btn.setStyle("-fx-base: #e3f2fd;");
                         btn.setText("");
                         remainPeriods++;
                     }
+                    updateButtonStyle(btn);
                 });
 
                 // Store reference
@@ -118,6 +116,18 @@ public class TimeGridSelector extends VBox {
 
         container.getChildren().addAll(lblSession, grid);
         return container;
+    }
+
+    private void updateButtonStyle(ToggleButton btn) {
+        String style;
+        if (btn.isSelected()) {
+            style = "-fx-base: #ef9a9a; -fx-text-fill: red; -fx-font-weight: bold;";
+        } else {
+            style = "-fx-base: #e3f2fd;";
+        }
+        // Force opacity to 1.0 to avoid pale look when disabled
+        style += " -fx-opacity: 1.0;";
+        btn.setStyle(style);
     }
 
     private Label getLabel(int startPeriod, int i, int currentGridRow) {
@@ -225,10 +235,18 @@ public class TimeGridSelector extends VBox {
 
     public void setReadOnly(boolean readOnly) {
         this.isReadOnly = readOnly;
+        if (readOnly) {
+            this.getChildren().remove(title);
+        } else {
+            if (!this.getChildren().contains(title)) {
+                this.getChildren().addFirst(title);
+            }
+        }
         for (int d = 0; d < DAYS.length; d++) {
             for (int t = 0; t < totalPeriods; t++) {
                 if (cells[d][t] != null) {
                     cells[d][t].setDisable(readOnly);
+                    updateButtonStyle(cells[d][t]);
                 }
             }
         }

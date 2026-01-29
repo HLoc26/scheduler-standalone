@@ -1,0 +1,27 @@
+.table-view .column-header-background {
+    -fx-background-color: #3498db;
+}
+
+.table-view .column-header, .table-view .filler {
+    -fx-background-color: transparent;
+    -fx-border-color: rgba(255, 255, 255, 0.3);
+    -fx-border-width: 0 1 0 0;
+}
+
+.table-view .column-header .label {
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+.table-view {
+    -fx-min-height: 500px;
+}
+
+.table-row-cell {
+    -fx-cell-size: 35px;
+}
+
+.table-cell {
+    -fx-padding: 0 0 0 10px;
+    -fx-alignment: center-left;
+}

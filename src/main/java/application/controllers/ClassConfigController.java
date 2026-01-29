@@ -304,6 +304,14 @@ public class ClassConfigController {
                     handleSelection(newVal); // Load data to the main panel
                 }
             });
+            
+            // Add focus listener to clear selection when focus lost
+            list.focusedProperty().addListener((obs, oldVal, newVal) -> {
+                if (!newVal) {
+                    list.getSelectionModel().clearSelection();
+                }
+            });
+
             pane.setContent(list);
             gradeAccordion.getPanes().add(pane);
 
