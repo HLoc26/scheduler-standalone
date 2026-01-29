@@ -132,6 +132,7 @@ public class ClassConfigController {
                     // Check null to avoid NPE
                     if (newVal != null && getTableRow().getItem() != null) {
                         getTableRow().getItem().setPeriodsPerWeek(newVal);
+                        updateTotalPeriods();
                     }
                 });
             }
