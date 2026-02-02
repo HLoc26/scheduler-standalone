@@ -5,10 +5,13 @@ import application.services.SchedulerEngineService;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 
 import java.io.File;
 import java.io.IOException;
@@ -63,7 +66,8 @@ public class MainController {
     @FXML
     public void showScheduler() {
         ScheduleController scheduleController = new ScheduleController(repo);
-        scheduleController.setOnReGenerateRequest(this::showScheduleGenerator);
+        // When "Generate" is clicked, show the Config screen (Modal)
+        scheduleController.setOnReGenerateRequest(this::showScheduleConfig);
         loadView("ScheduleView.fxml", scheduleController);
         setActiveButton(btnScheduler);
     }
@@ -77,8 +81,53 @@ public class MainController {
     }
 
     @FXML
-    public void showScheduleGenerator() {
-        ScheduleGeneratorController runController = new ScheduleGeneratorController(repo);
+    public void showScheduleConfig() {
+        try {
+            ScheduleConfigController configController = new ScheduleConfigController(repo);
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/application/ScheduleConfig.fxml"));
+            
+            // Use setControllerFactory instead of setController to avoid "Controller value already specified" error
+            loader.setControllerFactory(clazz -> {
+                if (clazz == ScheduleConfigController.class) {
+                    return configController;
+                }
+                try {
+                    return clazz.getDeclaredConstructor().newInstance();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+            Parent root = loader.load();
+
+            Stage stage = new Stage();
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.setTitle("Cấu hình Xếp lịch");
+            stage.setScene(new Scene(root));
+            stage.setResizable(false);
+
+            // When "Next" is clicked, close modal and go to Generator
+            configController.setOnNext((maxTime, maxWorkers) -> {
+                stage.close();
+                showScheduleGenerator(maxTime, maxWorkers);
+            });
+
+            // When "Cancel" is clicked, just close modal
+            configController.setOnCancel(stage::close);
+
+            stage.showAndWait();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Lỗi");
+            alert.setContentText("Không thể mở màn hình cấu hình: " + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+
+    public void showScheduleGenerator(int maxTime, int maxWorkers) {
+        ScheduleGeneratorController runController = new ScheduleGeneratorController(repo, maxTime, maxWorkers);
 
         // Khi chạy xong -> Chuyển sang trang Kết quả
         runController.setOnFinished(this::showScheduleResult);
@@ -90,15 +139,10 @@ public class MainController {
     public void showScheduleResult() {
         ScheduleController resultController = new ScheduleController(repo);
 
-        // --- THÊM ĐOẠN NÀY ---
-        // Khi bấm nút "Chạy lại" ở trang kết quả -> Quay lại trang Generator
-        resultController.setOnReGenerateRequest(this::showScheduleGenerator);
-        // ---------------------
+        // Khi bấm nút "Chạy lại" ở trang kết quả -> Quay lại trang Config (Modal)
+        resultController.setOnReGenerateRequest(this::showScheduleConfig);
 
         loadView("ScheduleView.fxml", resultController);
-
-        // (Tùy chọn) Highlight nút nào đó trên menu nếu cần
-        // setActiveButton(btnSchedule);
     }
 
     @FXML
