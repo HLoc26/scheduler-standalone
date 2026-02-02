@@ -11,6 +11,7 @@ import scheduler.common.proto.TaskDataProto;
 import scheduler.common.utils.ProtoMapper;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.prefs.Preferences;
@@ -69,7 +70,22 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
                         throw new FileNotFoundException("Engine JAR not found at: " + enginePath);
                     }
 
-                    ProcessBuilder pb = new ProcessBuilder(enginePath, tmpIn.getAbsolutePath(), tmpOut.getAbsolutePath());
+                    // Build command with flags -i and -o
+                    List<String> command = new ArrayList<>();
+                    // If it's a jar file, run with java -jar
+                    if (enginePath.toLowerCase().endsWith(".jar")) {
+                        command.add("java");
+                        command.add("-jar");
+                    }
+                    command.add(enginePath);
+                    
+                    command.add("-i");
+                    command.add(tmpIn.getAbsolutePath());
+                    
+                    command.add("-o");
+                    command.add(tmpOut.getAbsolutePath());
+
+                    ProcessBuilder pb = new ProcessBuilder(command);
 
                     pb.redirectErrorStream(true);
 
