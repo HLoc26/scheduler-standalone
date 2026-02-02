@@ -14,10 +14,12 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Circle;
+import javafx.scene.shape.SVGPath;
 import javafx.scene.text.Font;
 import scheduler.common.models.Slot;
 import scheduler.common.models.TaskData;
@@ -367,21 +369,28 @@ public class ScheduleGeneratorController {
     private static class ChecklistItem {
         private final HBox view;
         private final Label label;
-        private final Circle statusCircle;
+        private final StackPane iconContainer;
         private boolean isDone = false;
 
         public ChecklistItem(String text) {
             view = new HBox(10);
             view.setAlignment(Pos.CENTER_LEFT);
             
-            statusCircle = new Circle(5);
-            statusCircle.setFill(Color.ORANGE); // Loading state
+            iconContainer = new StackPane();
+            iconContainer.setPrefSize(20, 20);
+
+            // Loading Spinner
+            ProgressIndicator spinner = new ProgressIndicator();
+            spinner.setPrefSize(20, 20);
+            spinner.setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
+            
+            iconContainer.getChildren().add(spinner);
             
             label = new Label(text);
             label.setFont(new Font(14));
-            label.setTextFill(Color.web("#34495e"));
+            label.setTextFill(Color.web("#34495e")); // pale blue
 
-            view.getChildren().addAll(statusCircle, label);
+            view.getChildren().addAll(iconContainer, label);
         }
 
         public HBox getView() {
@@ -391,7 +400,15 @@ public class ScheduleGeneratorController {
         public void markDone() {
             if (isDone) return;
             isDone = true;
-            statusCircle.setFill(Color.GREEN);
+            
+            // Create Green Tick
+            SVGPath tick = new SVGPath();
+            tick.setContent("M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"); // Material Design Check
+            tick.setFill(Color.web("#27ae60"));
+            
+            iconContainer.getChildren().clear();
+            iconContainer.getChildren().add(tick);
+
             label.setTextFill(Color.web("#27ae60"));
             label.setStyle("-fx-font-weight: bold;");
         }
