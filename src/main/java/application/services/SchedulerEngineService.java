@@ -21,6 +21,10 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
     private static final String PREF_ENGINE_PATH = "engine_path";
     private static final String DEFAULT_ENGINE_PATH = "";
     private List<TaskData> inputData;
+    
+    // Configuration parameters
+    private int maxTime = 180; // Default 180s
+    private int maxWorkers = Runtime.getRuntime().availableProcessors() / 2; // Default half cores
 
     public static String getEnginePath() {
         Preferences prefs = Preferences.userNodeForPackage(SchedulerEngineService.class);
@@ -34,6 +38,14 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
 
     public void setInputData(List<TaskData> inputData) {
         this.inputData = inputData;
+    }
+
+    public void setMaxTime(int maxTime) {
+        this.maxTime = maxTime;
+    }
+
+    public void setMaxWorkers(int maxWorkers) {
+        this.maxWorkers = maxWorkers;
     }
 
     @Override
@@ -70,7 +82,7 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
                         throw new FileNotFoundException("Engine JAR not found at: " + enginePath);
                     }
 
-                    // Build command with flags -i and -o
+                    // Build command with flags -i, -o, -w, -t
                     List<String> command = new ArrayList<>();
                     // If it's a jar file, run with java -jar
                     if (enginePath.toLowerCase().endsWith(".jar")) {
@@ -84,6 +96,13 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
                     
                     command.add("-o");
                     command.add(tmpOut.getAbsolutePath());
+
+                    // Add configuration flags
+                    command.add("-w");
+                    command.add(String.valueOf(maxWorkers));
+                    
+                    command.add("-t");
+                    command.add(String.valueOf(maxTime));
 
                     ProcessBuilder pb = new ProcessBuilder(command);
 
