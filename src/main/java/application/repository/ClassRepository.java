@@ -19,14 +19,22 @@ public class ClassRepository implements IRepository {
                 + "id TEXT PRIMARY KEY,"
                 + "name TEXT NOT NULL,"
                 + "grade_id TEXT NOT NULL,"
-                + "CONSTRAINT fk_class_grade FOREIGN KEY (grade_id) REFERENCES grades(id)"
+                + "homeroom_teacher_id TEXT,"
+                + "CONSTRAINT fk_class_grade FOREIGN KEY (grade_id) REFERENCES grades(id),"
+                + "CONSTRAINT fk_class_teacher FOREIGN KEY (homeroom_teacher_id) REFERENCES teachers(id)"
                 + ");";
         try (
                 Connection conn = databaseHandler.getConnection();
                 Statement stmt = conn.createStatement()
         ) {
             stmt.execute(sql);
-            System.out.println("Table classes created successfully");
+            // Attempt to add column if it doesn't exist (migration for existing databases)
+            try {
+                stmt.execute("ALTER TABLE classes ADD COLUMN homeroom_teacher_id TEXT;");
+            } catch (SQLException ignored) {
+                // Column likely already exists
+            }
+            System.out.println("Table classes created/updated successfully");
         } catch (SQLException e) {
             System.out.println("Error while creating classes db" + e.getMessage());
             throw new RuntimeException(e);
@@ -46,7 +54,8 @@ public class ClassRepository implements IRepository {
                 Clazz c = new Clazz(
                         rs.getString("id"),
                         rs.getString("name"),
-                        rs.getString("grade_id")
+                        rs.getString("grade_id"),
+                        rs.getString("homeroom_teacher_id")
                 );
                 clazzes.add(c);
             }
@@ -68,7 +77,8 @@ public class ClassRepository implements IRepository {
                 return new Clazz(
                         rs.getString("id"),
                         rs.getString("name"),
-                        rs.getString("grade_id")
+                        rs.getString("grade_id"),
+                        rs.getString("homeroom_teacher_id")
                 );
 
             }
@@ -92,7 +102,8 @@ public class ClassRepository implements IRepository {
                 Clazz c = new Clazz(
                         rs.getString("id"),
                         rs.getString("name"),
-                        rs.getString("grade_id")
+                        rs.getString("grade_id"),
+                        rs.getString("homeroom_teacher_id")
                 );
                 classes.add(c);
             }
@@ -102,9 +113,32 @@ public class ClassRepository implements IRepository {
         }
     }
 
+    public Clazz findByHomeroomTeacher(String teacherId) {
+        String sql = "SELECT * FROM classes WHERE homeroom_teacher_id = ?";
+        try (
+                Connection conn = databaseHandler.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)
+        ) {
+            ps.setString(1, teacherId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return new Clazz(
+                        rs.getString("id"),
+                        rs.getString("name"),
+                        rs.getString("grade_id"),
+                        rs.getString("homeroom_teacher_id")
+                );
+            }
+            return null;
+        } catch (SQLException e) {
+            System.err.println("Error finding class by homeroom teacher: " + e.getMessage());
+            return null;
+        }
+    }
+
     public boolean save(Clazz c) {
-        String sql = "INSERT INTO classes (id, name, grade_id) VALUES (?, ?, ?) " +
-                "ON CONFLICT(id) DO UPDATE SET name = excluded.name, grade_id = excluded.grade_id;";
+        String sql = "INSERT INTO classes (id, name, grade_id, homeroom_teacher_id) VALUES (?, ?, ?, ?) " +
+                "ON CONFLICT(id) DO UPDATE SET name = excluded.name, grade_id = excluded.grade_id, homeroom_teacher_id = excluded.homeroom_teacher_id;";
         try (
                 Connection conn = databaseHandler.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)
@@ -112,6 +146,7 @@ public class ClassRepository implements IRepository {
             ps.setString(1, c.getId());
             ps.setString(2, c.getClassName());
             ps.setString(3, c.getGradeId());
+            ps.setString(4, c.getHomeroomTeacherId());
             return ps.executeUpdate() > 0;
 
         } catch (SQLException e) {
