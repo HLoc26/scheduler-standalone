@@ -147,8 +147,125 @@ public class TeacherController {
             homeroomClassComboBox.setDisable(!newVal);
             if (!newVal) {
                 homeroomClassComboBox.setValue(null);
+            } else {
+                // If checked, update busy matrix constraints immediately if a class is already selected
+                updateHomeroomConstraints();
             }
         });
+
+        homeroomClassComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (chkHomeroom.isSelected()) {
+                updateHomeroomConstraints();
+            }
+        });
+    }
+
+    private void updateHomeroomConstraints() {
+        if (chkHomeroom.isSelected() && homeroomClassComboBox.getValue() != null) {
+            Clazz homeroomClass = homeroomClassComboBox.getValue();
+            Grade grade = repositoryOrchestrator.getGradeRepository().getById(homeroomClass.getGradeId());
+            if (grade != null && grade.getSession() != null) {
+                // Fetch full session with busy matrix
+                Session fullSession = repositoryOrchestrator.getSessionRepository().getByName(grade.getSession().getSessionName());
+                if (fullSession == null) return;
+
+                ESession session = fullSession.getSessionName();
+                boolean[][] currentMatrix = timeGridSelector.getBusyMatrix();
+                boolean[][] sessionBusyMatrix = fullSession.getBusyMatrix();
+                
+                if (session == ESession.MORNING) {
+                    // Constraint 1: Monday Period 0 (Flag Salute)
+                    currentMatrix[0][0] = false; // Available
+                    timeGridSelector.setSpecialCell(0, 0, "Tiết này dành cho Chào cờ (GVCN phải tham gia)");
+                    
+                    // Constraint 2: Last period of the session (Class Meeting)
+                    // Find the last available period in the session (iterate backwards from Saturday to Monday)
+                    int lastDay = -1;
+                    int lastPeriod = -1;
+                    
+                    // Search for the last available slot in the week
+                    // Iterate days backwards: Saturday (5) -> Monday (0)
+                    for (int d = 5; d >= 0; d--) {
+                        // Iterate periods backwards: 4 -> 0
+                        for (int p = 4; p >= 0; p--) {
+                            if (!sessionBusyMatrix[d][p]) { // If NOT busy (available)
+                                lastDay = d;
+                                lastPeriod = p;
+                                break;
+                            }
+                        }
+                        if (lastDay != -1) break;
+                    }
+                    
+                    if (lastDay != -1 && lastPeriod != -1) {
+                        currentMatrix[lastDay][lastPeriod] = false; // Available
+                        timeGridSelector.setSpecialCell(lastDay, lastPeriod, "Tiết này dành cho Sinh hoạt lớp (GVCN phải tham gia)");
+                    }
+                    
+                    // Unlock potential afternoon constraints if they were locked
+                    timeGridSelector.setSpecialCell(0, 9, null);
+                    // Unlock default Saturday last period if different
+                    if (lastDay != 5 || lastPeriod != 4) timeGridSelector.setSpecialCell(5, 4, null);
+
+                } else if (session == ESession.AFTERNOON) {
+                    // Constraint 1: Last period of Monday (Flag Salute)
+                    int lastMondayPeriod = -1;
+                    for (int p = 9; p >= 5; p--) {
+                        if (!sessionBusyMatrix[0][p]) {
+                            lastMondayPeriod = p;
+                            break;
+                        }
+                    }
+                    
+                    if (lastMondayPeriod != -1) {
+                        currentMatrix[0][lastMondayPeriod] = false; // Available
+                        timeGridSelector.setSpecialCell(0, lastMondayPeriod, "Tiết này dành cho Chào cờ (GVCN phải tham gia)");
+                    }
+                    
+                    // Constraint 2: Last period of the session (Class Meeting)
+                    int lastDay = -1;
+                    int lastPeriod = -1;
+                    
+                    // Search for the last available slot in the week
+                    // Iterate days backwards: Saturday (5) -> Monday (0)
+                    for (int d = 5; d >= 0; d--) {
+                        // Iterate periods backwards: 9 -> 5
+                        for (int p = 9; p >= 5; p--) {
+                            if (!sessionBusyMatrix[d][p]) { // If NOT busy (available)
+                                lastDay = d;
+                                lastPeriod = p;
+                                break;
+                            }
+                        }
+                        if (lastDay != -1) break;
+                    }
+                    
+                    if (lastDay != -1 && lastPeriod != -1) {
+                        currentMatrix[lastDay][lastPeriod] = false; // Available
+                        timeGridSelector.setSpecialCell(lastDay, lastPeriod, "Tiết này dành cho Sinh hoạt lớp (GVCN phải tham gia)");
+                    }
+                    
+                    // Unlock potential morning constraints
+                    timeGridSelector.setSpecialCell(0, 0, null);
+                    timeGridSelector.setSpecialCell(5, 4, null);
+                }
+                
+                timeGridSelector.setBusyMatrix(currentMatrix);
+            }
+        } else {
+            // Unlock all special cells if no homeroom selected
+            timeGridSelector.setSpecialCell(0, 0, null);
+            for (int p = 0; p < 10; p++) {
+                timeGridSelector.setSpecialCell(0, p, null); // Unlock all Monday
+                timeGridSelector.setSpecialCell(5, p, null); // Unlock all Saturday
+            }
+            // Also unlock all other cells just in case
+            for (int d = 0; d < 6; d++) {
+                for (int p = 0; p < 10; p++) {
+                    timeGridSelector.setSpecialCell(d, p, null);
+                }
+            }
+        }
     }
 
     private void setupAssignmentForm() {
@@ -333,6 +450,9 @@ public class TeacherController {
             chkHomeroom.setSelected(false);
             homeroomClassComboBox.setValue(null);
         }
+        
+        // Update constraints based on loaded data
+        updateHomeroomConstraints();
     }
 
     private void createNewTeacher() {
@@ -401,7 +521,76 @@ public class TeacherController {
         if (selected != null) {
             selected.setName(nameField.getText());
             selected.setId(codeField.getText());
-            selected.setBusyMatrix(timeGridSelector.getBusyMatrix());
+
+            boolean[][] busyMatrix = timeGridSelector.getBusyMatrix();
+            
+            // Re-apply constraints to ensure they are saved correctly even if user tried to bypass UI
+            if (chkHomeroom.isSelected() && homeroomClassComboBox.getValue() != null) {
+                Clazz homeroomClass = homeroomClassComboBox.getValue();
+                Grade grade = repositoryOrchestrator.getGradeRepository().getById(homeroomClass.getGradeId());
+                if (grade != null && grade.getSession() != null) {
+                    // Fetch full session with busy matrix
+                    Session fullSession = repositoryOrchestrator.getSessionRepository().getByName(grade.getSession().getSessionName());
+                    if (fullSession != null) {
+                        ESession session = fullSession.getSessionName();
+                        boolean[][] sessionBusyMatrix = fullSession.getBusyMatrix();
+                        
+                        if (session == ESession.MORNING) {
+                            // Constraint 1: Monday Period 0
+                            busyMatrix[0][0] = false;
+                            
+                            // Constraint 2: Last period of the session
+                            int lastDay = -1;
+                            int lastPeriod = -1;
+                            for (int d = 5; d >= 0; d--) {
+                                for (int p = 4; p >= 0; p--) {
+                                    if (!sessionBusyMatrix[d][p]) {
+                                        lastDay = d;
+                                        lastPeriod = p;
+                                        break;
+                                    }
+                                }
+                                if (lastDay != -1) break;
+                            }
+                            if (lastDay != -1 && lastPeriod != -1) {
+                                busyMatrix[lastDay][lastPeriod] = false;
+                            }
+                        } else if (session == ESession.AFTERNOON) {
+                            // Constraint 1: Last period of Monday
+                            int lastMondayPeriod = -1;
+                            for (int p = 9; p >= 5; p--) {
+                                if (!sessionBusyMatrix[0][p]) {
+                                    lastMondayPeriod = p;
+                                    break;
+                                }
+                            }
+                            if (lastMondayPeriod != -1) {
+                                busyMatrix[0][lastMondayPeriod] = false;
+                            }
+                            
+                            // Constraint 2: Last period of the session
+                            int lastDay = -1;
+                            int lastPeriod = -1;
+                            for (int d = 5; d >= 0; d--) {
+                                for (int p = 9; p >= 5; p--) {
+                                    if (!sessionBusyMatrix[d][p]) {
+                                        lastDay = d;
+                                        lastPeriod = p;
+                                        break;
+                                    }
+                                }
+                                if (lastDay != -1) break;
+                            }
+                            if (lastDay != -1 && lastPeriod != -1) {
+                                busyMatrix[lastDay][lastPeriod] = false;
+                            }
+                        }
+                    }
+                }
+            }
+
+            selected.setBusyMatrix(busyMatrix);
+            // timeGridSelector.setBusyMatrix(busyMatrix); // No need to reset UI here, it might flicker
 
             // Save assignment list from table to Teacher Object
             selected.setAssignments(FXCollections.observableArrayList(currentAssignments));
