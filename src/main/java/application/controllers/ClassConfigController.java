@@ -18,6 +18,7 @@ import javafx.scene.layout.StackPane;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public class ClassConfigController {
     private final RepositoryOrchestrator repo;
@@ -60,6 +61,10 @@ public class ClassConfigController {
     private Button btnAddGrade;
     @FXML
     private Button btnDeleteGrade;
+    @FXML
+    private ComboBox<Teacher> homeroomTeacherComboBox;
+    @FXML
+    private Label lblHomeroomTeacher;
 
     private TimeGridSelector timeGridSelector;
 
@@ -97,6 +102,83 @@ public class ClassConfigController {
 
         // Setup Accordion
         loadAccordionData();
+
+        // Setup Homeroom Teacher ComboBox
+        setupHomeroomTeacherComboBox();
+    }
+
+    private void setupHomeroomTeacherComboBox() {
+        List<Teacher> teachers = repo.getTeacherRepository().getAll();
+        homeroomTeacherComboBox.getItems().addAll(teachers);
+        homeroomTeacherComboBox.setConverter(new javafx.util.StringConverter<Teacher>() {
+            @Override
+            public String toString(Teacher object) {
+                return object == null ? "" : object.getName();
+            }
+
+            @Override
+            public Teacher fromString(String string) {
+                return null;
+            }
+        });
+        
+        homeroomTeacherComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (currentSelectingClass != null) {
+                if (newVal != null) {
+                    currentSelectingClass.setHomeroomTeacherId(newVal.getId());
+                    repo.getClassRepository().save(currentSelectingClass);
+                    
+                    // Automatically assign Flag Salute and Class Meeting
+                    assignHomeroomDuties(currentSelectingClass, newVal);
+                } else {
+                    currentSelectingClass.setHomeroomTeacherId(null);
+                    repo.getClassRepository().save(currentSelectingClass);
+                }
+            }
+        });
+    }
+
+    private void assignHomeroomDuties(Clazz clazz, Teacher teacher) {
+        // Find subjects for Flag Salute and Class Meeting
+        // Assuming subject names are "Chào cờ" and "Sinh hoạt lớp" or similar.
+        // Better to use IDs or a specific property, but for now let's search by name or assume standard IDs if possible.
+        // Or we can iterate all subjects and find matches.
+        
+        List<Subject> subjects = repo.getSubjectRepository().getAll();
+        String flagSaluteId = null;
+        String classMeetingId = null;
+        
+        for (Subject s : subjects) {
+            String name = s.getName().toLowerCase();
+            if (name.contains("chào cờ")) {
+                flagSaluteId = s.getId();
+            } else if (name.contains("sinh hoạt") || name.contains("shcn")) {
+                classMeetingId = s.getId();
+            }
+        }
+        
+        if (flagSaluteId != null) {
+            assignTeacherToSubject(clazz, teacher, flagSaluteId);
+        }
+        
+        if (classMeetingId != null) {
+            assignTeacherToSubject(clazz, teacher, classMeetingId);
+        }
+        
+        // Refresh table to show new assignments
+        curriculumTable.refresh();
+    }
+
+    private void assignTeacherToSubject(Clazz clazz, Teacher teacher, String subjectId) {
+        // Check if assignment exists
+        Assignment existing = repo.getAssignmentRepository().getByClassAndSubject(clazz.getId(), subjectId);
+        if (existing != null) {
+            existing.setTeacherId(teacher.getId());
+            repo.getAssignmentRepository().save(existing);
+        } else {
+            Assignment newAssignment = new Assignment(UUID.randomUUID().toString(), teacher.getId(), subjectId, clazz.getId());
+            repo.getAssignmentRepository().save(newAssignment);
+        }
     }
 
     private void setButtonVisibility(boolean addClass, boolean deleteClass, boolean deleteGrade) {
@@ -363,6 +445,10 @@ public class ClassConfigController {
             btnSave.setText("LƯU CẤU HÌNH KHỐI");
 
             setButtonVisibility(true, false, true);
+            
+            // Hide Homeroom Teacher controls
+            lblHomeroomTeacher.setVisible(false);
+            homeroomTeacherComboBox.setVisible(false);
 
             // Enable session toggle for Grade config
             btnMorning.setDisable(false);
@@ -395,6 +481,18 @@ public class ClassConfigController {
             btnSave.setText("CHẾ ĐỘ XEM");
 
             setButtonVisibility(false, true, false);
+            
+            // Show Homeroom Teacher controls
+            lblHomeroomTeacher.setVisible(true);
+            homeroomTeacherComboBox.setVisible(true);
+            
+            // Set current homeroom teacher
+            if (c.getHomeroomTeacherId() != null) {
+                Teacher t = repo.getTeacherRepository().getById(c.getHomeroomTeacherId());
+                homeroomTeacherComboBox.setValue(t);
+            } else {
+                homeroomTeacherComboBox.setValue(null);
+            }
 
             // Disable session toggle for Class view (inherited from Grade)
             btnMorning.setDisable(true);

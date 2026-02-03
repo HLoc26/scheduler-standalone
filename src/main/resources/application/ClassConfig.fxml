@@ -95,6 +95,12 @@
                                 style="-fx-background-color: #c0392b; -fx-text-fill: white; -fx-font-weight: bold; -fx-margin-left: 10px;"
                                 onAction="#handleDeleteClass"/>
                     </HBox>
+
+                    <HBox alignment="CENTER_LEFT" spacing="10.0">
+                        <Label fx:id="lblHomeroomTeacher" text="Giáo viên chủ nhiệm:" style="-fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+                        <ComboBox fx:id="homeroomTeacherComboBox" prefWidth="200.0"/>
+                    </HBox>
+
                     <TableView fx:id="curriculumTable" editable="true" VBox.vgrow="ALWAYS">
                         <columns>
                             <TableColumn fx:id="colSubject" prefWidth="250.0" text="Môn học"/>
