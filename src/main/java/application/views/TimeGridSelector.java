@@ -3,6 +3,7 @@ package application.views;
 import application.models.ESession;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Label;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.GridPane;
@@ -19,6 +20,7 @@ public class TimeGridSelector extends VBox {
     private int remainPeriods;
     private boolean isReadOnly = false;
     private Label title;
+    private final String[][] specialMessages;
 
 
     public TimeGridSelector() {
@@ -28,6 +30,7 @@ public class TimeGridSelector extends VBox {
     public TimeGridSelector(ESession session) {
         this.totalPeriods = 10;
         this.cells = new ToggleButton[6][totalPeriods];
+        this.specialMessages = new String[6][totalPeriods];
         this.setSpacing(10);
         this.remainPeriods = DAYS.length * this.totalPeriods;
 
@@ -95,7 +98,15 @@ public class TimeGridSelector extends VBox {
                 btn.setPrefSize(50, 40);
                 updateButtonStyle(btn);
 
+                int finalDay = day;
                 btn.selectedProperty().addListener((obs, oldVal, newVal) -> {
+                    if (specialMessages[finalDay][periodIndex] != null && newVal) {
+                        // If trying to select a special cell, revert and show alert
+                        btn.setSelected(false);
+                        showAlert(Alert.AlertType.WARNING, "Không thể chọn", specialMessages[finalDay][periodIndex]);
+                        return;
+                    }
+
                     if (newVal) {
                         btn.setText("X");
                         remainPeriods--;
@@ -157,6 +168,8 @@ public class TimeGridSelector extends VBox {
 
         boolean newState = !allSelected;
         for (int i = 0; i < DAYS.length; i++) {
+            // Skip special cells if trying to select
+            if (newState && specialMessages[i][periodIndex] != null) continue;
             cells[i][periodIndex].setSelected(newState);
         }
     }
@@ -174,8 +187,18 @@ public class TimeGridSelector extends VBox {
 
         boolean newState = !allSelected;
         for (int i = 0; i < PERIOD_PER_SESSION; i++) {
+            // Skip special cells if trying to select
+            if (newState && specialMessages[dayIndex][startPeriod + i] != null) continue;
             cells[dayIndex][startPeriod + i].setSelected(newState);
         }
+    }
+
+    private void showAlert(Alert.AlertType type, String title, String content) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.show();
     }
 
     // --- DATA ACCESS METHODS ---
@@ -247,6 +270,30 @@ public class TimeGridSelector extends VBox {
                 if (cells[d][t] != null) {
                     cells[d][t].setDisable(readOnly);
                     updateButtonStyle(cells[d][t]);
+                }
+            }
+        }
+    }
+
+    public void setCellDisabled(int day, int period, boolean disabled) {
+        if (day >= 0 && day < DAYS.length && period >= 0 && period < totalPeriods) {
+            if (cells[day][period] != null) {
+                cells[day][period].setDisable(disabled);
+                updateButtonStyle(cells[day][period]);
+            }
+        }
+    }
+
+    public void setSpecialCell(int day, int period, String message) {
+        if (day >= 0 && day < DAYS.length && period >= 0 && period < totalPeriods) {
+            specialMessages[day][period] = message;
+            // If setting a special message, ensure the cell is not selected (not busy)
+            // But we don't disable it, we just intercept the click
+            if (message != null) {
+                if (cells[day][period] != null) {
+                    cells[day][period].setSelected(false);
+                    // We don't disable the button so it can be clicked to show the alert
+                    cells[day][period].setDisable(false);
                 }
             }
         }

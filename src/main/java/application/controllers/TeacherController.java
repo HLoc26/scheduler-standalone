@@ -15,6 +15,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 import javafx.util.Callback;
+import scheduler.common.constants.SubjectConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -65,6 +66,12 @@ public class TeacherController {
     private TableColumn<Assignment, Void> colAction; // Column containing Delete button
     @FXML
     private Label totalPeriodsLabel;
+    // --- Homeroom Teacher Controls ---
+    @FXML
+    private CheckBox chkHomeroom;
+    @FXML
+    private ComboBox<Clazz> homeroomClassComboBox;
+
     // --- Data & Logic ---
     private TimeGridSelector timeGridSelector;
 
@@ -77,9 +84,40 @@ public class TeacherController {
         setupTeacherList();
         setupAssignmentForm(); // Setup logic for assignment
         setupButtons();
+        setupHomeroomControls();
 
-        loadData(); // Will be replaced by load from DB
+        loadData();
         Platform.runLater(() -> root.setDividerPosition(0, 0.2));
+
+        // Check for implicit homeroom assignments on startup
+        Platform.runLater(this::checkAllImplicitHomeroomAssignments);
+    }
+
+    private void checkAllImplicitHomeroomAssignments() {
+        // This method scans all assignments in the DB and ensures homeroom consistency
+        List<Assignment> allAssignments = repositoryOrchestrator.getAssignmentRepository().getAll();
+        List<Subject> subjects = repositoryOrchestrator.getSubjectRepository().getAll();
+
+        for (Assignment a : allAssignments) {
+            Subject s = subjects.stream().filter(sub -> sub.getId().equals(a.getSubjectId())).findFirst().orElse(null);
+            if (s == null) continue;
+
+            boolean isSpecial = s.getId().equals(SubjectConstants.FLAG_SALUTE_ID) ||
+                    s.getId().equals(SubjectConstants.CLASS_MEETING_ID);
+
+            if (isSpecial) {
+                Clazz clazz = repositoryOrchestrator.getClassRepository().getById(a.getClassId());
+                if (clazz != null) {
+                    // If class has no homeroom teacher, or different one, update it
+                    // Special subject assignment implies homeroom duty.
+                    if (!a.getTeacherId().equals(clazz.getHomeroomTeacherId())) {
+                        clazz.setHomeroomTeacherId(a.getTeacherId());
+                        repositoryOrchestrator.getClassRepository().save(clazz);
+                        System.out.println("Auto-assigned homeroom teacher " + a.getTeacherId() + " for class " + clazz.getClassName() + " based on subject " + s.getName());
+                    }
+                }
+            }
+        }
     }
 
     private void setupTimeGrid() {
@@ -102,6 +140,132 @@ public class TeacherController {
 
         // Batch Add button event
         btnAddBatch.setOnAction(e -> handleBatchAdd());
+    }
+
+    private void setupHomeroomControls() {
+        chkHomeroom.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            homeroomClassComboBox.setDisable(!newVal);
+            if (!newVal) {
+                homeroomClassComboBox.setValue(null);
+            } else {
+                // If checked, update busy matrix constraints immediately if a class is already selected
+                updateHomeroomConstraints();
+            }
+        });
+
+        homeroomClassComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (chkHomeroom.isSelected()) {
+                updateHomeroomConstraints();
+            }
+        });
+    }
+
+    private void updateHomeroomConstraints() {
+        if (chkHomeroom.isSelected() && homeroomClassComboBox.getValue() != null) {
+            Clazz homeroomClass = homeroomClassComboBox.getValue();
+            Grade grade = repositoryOrchestrator.getGradeRepository().getById(homeroomClass.getGradeId());
+            if (grade != null && grade.getSession() != null) {
+                // Fetch full session with busy matrix
+                Session fullSession = repositoryOrchestrator.getSessionRepository().getByName(grade.getSession().getSessionName());
+                if (fullSession == null) return;
+
+                ESession session = fullSession.getSessionName();
+                boolean[][] currentMatrix = timeGridSelector.getBusyMatrix();
+                boolean[][] sessionBusyMatrix = fullSession.getBusyMatrix();
+                
+                if (session == ESession.MORNING) {
+                    // Constraint 1: Monday Period 0 (Flag Salute)
+                    currentMatrix[0][0] = false; // Available
+                    timeGridSelector.setSpecialCell(0, 0, "Tiết này dành cho Chào cờ (GVCN phải tham gia)");
+                    
+                    // Constraint 2: Last period of the session (Class Meeting)
+                    // Find the last available period in the session (iterate backwards from Saturday to Monday)
+                    int lastDay = -1;
+                    int lastPeriod = -1;
+                    
+                    // Search for the last available slot in the week
+                    // Iterate days backwards: Saturday (5) -> Monday (0)
+                    for (int d = 5; d >= 0; d--) {
+                        // Iterate periods backwards: 4 -> 0
+                        for (int p = 4; p >= 0; p--) {
+                            if (!sessionBusyMatrix[d][p]) { // If NOT busy (available)
+                                lastDay = d;
+                                lastPeriod = p;
+                                break;
+                            }
+                        }
+                        if (lastDay != -1) break;
+                    }
+                    
+                    if (lastDay != -1 && lastPeriod != -1) {
+                        currentMatrix[lastDay][lastPeriod] = false; // Available
+                        timeGridSelector.setSpecialCell(lastDay, lastPeriod, "Tiết này dành cho Sinh hoạt lớp (GVCN phải tham gia)");
+                    }
+                    
+                    // Unlock potential afternoon constraints if they were locked
+                    timeGridSelector.setSpecialCell(0, 9, null);
+                    // Unlock default Saturday last period if different
+                    if (lastDay != 5 || lastPeriod != 4) timeGridSelector.setSpecialCell(5, 4, null);
+
+                } else if (session == ESession.AFTERNOON) {
+                    // Constraint 1: Last period of Monday (Flag Salute)
+                    int lastMondayPeriod = -1;
+                    for (int p = 9; p >= 5; p--) {
+                        if (!sessionBusyMatrix[0][p]) {
+                            lastMondayPeriod = p;
+                            break;
+                        }
+                    }
+                    
+                    if (lastMondayPeriod != -1) {
+                        currentMatrix[0][lastMondayPeriod] = false; // Available
+                        timeGridSelector.setSpecialCell(0, lastMondayPeriod, "Tiết này dành cho Chào cờ (GVCN phải tham gia)");
+                    }
+                    
+                    // Constraint 2: Last period of the session (Class Meeting)
+                    int lastDay = -1;
+                    int lastPeriod = -1;
+                    
+                    // Search for the last available slot in the week
+                    // Iterate days backwards: Saturday (5) -> Monday (0)
+                    for (int d = 5; d >= 0; d--) {
+                        // Iterate periods backwards: 9 -> 5
+                        for (int p = 9; p >= 5; p--) {
+                            if (!sessionBusyMatrix[d][p]) { // If NOT busy (available)
+                                lastDay = d;
+                                lastPeriod = p;
+                                break;
+                            }
+                        }
+                        if (lastDay != -1) break;
+                    }
+                    
+                    if (lastDay != -1 && lastPeriod != -1) {
+                        currentMatrix[lastDay][lastPeriod] = false; // Available
+                        timeGridSelector.setSpecialCell(lastDay, lastPeriod, "Tiết này dành cho Sinh hoạt lớp (GVCN phải tham gia)");
+                    }
+                    
+                    // Unlock potential morning constraints
+                    timeGridSelector.setSpecialCell(0, 0, null);
+                    timeGridSelector.setSpecialCell(5, 4, null);
+                }
+                
+                timeGridSelector.setBusyMatrix(currentMatrix);
+            }
+        } else {
+            // Unlock all special cells if no homeroom selected
+            timeGridSelector.setSpecialCell(0, 0, null);
+            for (int p = 0; p < 10; p++) {
+                timeGridSelector.setSpecialCell(0, p, null); // Unlock all Monday
+                timeGridSelector.setSpecialCell(5, p, null); // Unlock all Saturday
+            }
+            // Also unlock all other cells just in case
+            for (int d = 0; d < 6; d++) {
+                for (int p = 0; p < 10; p++) {
+                    timeGridSelector.setSpecialCell(d, p, null);
+                }
+            }
+        }
     }
 
     private void setupAssignmentForm() {
@@ -142,6 +306,10 @@ public class TeacherController {
             return;
         }
 
+        // Check if user is trying to manually assign special subjects
+        boolean isSpecialSubject = subject.getId().equals(SubjectConstants.FLAG_SALUTE_ID) ||
+                subject.getId().equals(SubjectConstants.CLASS_MEETING_ID);
+
         // Create Assignment for each selected class
         for (Clazz clazz : selectedClasses) {
             boolean exists = currentAssignments.stream().anyMatch(
@@ -153,6 +321,53 @@ public class TeacherController {
             if (cur == null || cur.getPeriodsPerWeek() == 0) {
                 System.out.println("Subject " + subject + " is not in curriculum for class " + clazz);
                 continue;
+            }
+
+            // Constraint Check for Special Subjects
+            if (isSpecialSubject) {
+                // Check if class already has a homeroom teacher
+                // Note: We need fresh data from DB for accurate check
+                Clazz freshClass = repositoryOrchestrator.getClassRepository().getById(clazz.getId());
+                if (freshClass.getHomeroomTeacherId() != null && !freshClass.getHomeroomTeacherId().equals(selectedTeacher.getId())) {
+                    Teacher existingTeacher = repositoryOrchestrator.getTeacherRepository().getById(freshClass.getHomeroomTeacherId());
+
+                    // Ask user for confirmation to overwrite
+                    Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+                    confirmAlert.setTitle("Xác nhận thay đổi");
+                    confirmAlert.setHeaderText("Xung đột giáo viên chủ nhiệm");
+                    confirmAlert.setContentText("Lớp " + freshClass.getClassName() + " đã có giáo viên chủ nhiệm là " +
+                            (existingTeacher != null ? existingTeacher.getName() : "Unknown") +
+                            ". Bạn có muốn thay thế bằng giáo viên hiện tại không?");
+
+                    Optional<ButtonType> result = confirmAlert.showAndWait();
+                    if (result.isPresent() && result.get() == ButtonType.OK) {
+                        // User confirmed overwrite. 
+                        // We don't need to do anything special here, as the save logic will handle the update.
+                        // However, we should probably update the UI to reflect this change if needed.
+                    } else {
+                        continue; // Skip this class if user cancels
+                    }
+                }
+
+                // Check if teacher is already homeroom for another class
+                Clazz otherClass = repositoryOrchestrator.getClassRepository().findByHomeroomTeacher(selectedTeacher.getId());
+                if (otherClass != null && !otherClass.getId().equals(freshClass.getId())) {
+                    showAlert(Alert.AlertType.ERROR, "Xung đột", "Giáo viên này đang là chủ nhiệm của lớp " + otherClass.getClassName() + ".");
+                    continue; // Skip this class
+                }
+
+                // If checks pass, we will implicitly set this teacher as homeroom teacher upon saving
+                // For UI feedback, we can update the homeroom controls immediately if single class selected
+                if (selectedClasses.size() == 1) {
+                    chkHomeroom.setSelected(true);
+                    // Find matching item in combobox
+                    for (Clazz c : homeroomClassComboBox.getItems()) {
+                        if (c.getId().equals(clazz.getId())) {
+                            homeroomClassComboBox.setValue(c);
+                            break;
+                        }
+                    }
+                }
             }
 
             Assignment newAssignment = new Assignment(
@@ -219,6 +434,25 @@ public class TeacherController {
 
         // Load this teacher's assignment list into the table
         currentAssignments.setAll(teacher.getAssignments());
+
+        // Load homeroom info
+        Clazz homeroomClass = repositoryOrchestrator.getClassRepository().findByHomeroomTeacher(teacher.getId());
+        if (homeroomClass != null) {
+            chkHomeroom.setSelected(true);
+            // Find the matching object in the combobox items to select it correctly
+            for (Clazz c : homeroomClassComboBox.getItems()) {
+                if (c.getId().equals(homeroomClass.getId())) {
+                    homeroomClassComboBox.setValue(c);
+                    break;
+                }
+            }
+        } else {
+            chkHomeroom.setSelected(false);
+            homeroomClassComboBox.setValue(null);
+        }
+        
+        // Update constraints based on loaded data
+        updateHomeroomConstraints();
     }
 
     private void createNewTeacher() {
@@ -287,7 +521,76 @@ public class TeacherController {
         if (selected != null) {
             selected.setName(nameField.getText());
             selected.setId(codeField.getText());
-            selected.setBusyMatrix(timeGridSelector.getBusyMatrix());
+
+            boolean[][] busyMatrix = timeGridSelector.getBusyMatrix();
+            
+            // Re-apply constraints to ensure they are saved correctly even if user tried to bypass UI
+            if (chkHomeroom.isSelected() && homeroomClassComboBox.getValue() != null) {
+                Clazz homeroomClass = homeroomClassComboBox.getValue();
+                Grade grade = repositoryOrchestrator.getGradeRepository().getById(homeroomClass.getGradeId());
+                if (grade != null && grade.getSession() != null) {
+                    // Fetch full session with busy matrix
+                    Session fullSession = repositoryOrchestrator.getSessionRepository().getByName(grade.getSession().getSessionName());
+                    if (fullSession != null) {
+                        ESession session = fullSession.getSessionName();
+                        boolean[][] sessionBusyMatrix = fullSession.getBusyMatrix();
+                        
+                        if (session == ESession.MORNING) {
+                            // Constraint 1: Monday Period 0
+                            busyMatrix[0][0] = false;
+                            
+                            // Constraint 2: Last period of the session
+                            int lastDay = -1;
+                            int lastPeriod = -1;
+                            for (int d = 5; d >= 0; d--) {
+                                for (int p = 4; p >= 0; p--) {
+                                    if (!sessionBusyMatrix[d][p]) {
+                                        lastDay = d;
+                                        lastPeriod = p;
+                                        break;
+                                    }
+                                }
+                                if (lastDay != -1) break;
+                            }
+                            if (lastDay != -1 && lastPeriod != -1) {
+                                busyMatrix[lastDay][lastPeriod] = false;
+                            }
+                        } else if (session == ESession.AFTERNOON) {
+                            // Constraint 1: Last period of Monday
+                            int lastMondayPeriod = -1;
+                            for (int p = 9; p >= 5; p--) {
+                                if (!sessionBusyMatrix[0][p]) {
+                                    lastMondayPeriod = p;
+                                    break;
+                                }
+                            }
+                            if (lastMondayPeriod != -1) {
+                                busyMatrix[0][lastMondayPeriod] = false;
+                            }
+                            
+                            // Constraint 2: Last period of the session
+                            int lastDay = -1;
+                            int lastPeriod = -1;
+                            for (int d = 5; d >= 0; d--) {
+                                for (int p = 9; p >= 5; p--) {
+                                    if (!sessionBusyMatrix[d][p]) {
+                                        lastDay = d;
+                                        lastPeriod = p;
+                                        break;
+                                    }
+                                }
+                                if (lastDay != -1) break;
+                            }
+                            if (lastDay != -1 && lastPeriod != -1) {
+                                busyMatrix[lastDay][lastPeriod] = false;
+                            }
+                        }
+                    }
+                }
+            }
+
+            selected.setBusyMatrix(busyMatrix);
+            // timeGridSelector.setBusyMatrix(busyMatrix); // No need to reset UI here, it might flicker
 
             // Save assignment list from table to Teacher Object
             selected.setAssignments(FXCollections.observableArrayList(currentAssignments));
@@ -316,6 +619,16 @@ public class TeacherController {
                     }
                 }
 
+                // Handle Homeroom Teacher
+                if (!handleHomeroomAssignment(selected)) {
+                    // If failed (due to conflict), reload data to revert UI changes
+                    showTeacherDetails(selected);
+                    return;
+                }
+
+                // Check for implicit homeroom assignment from subjects
+                checkImplicitHomeroomAssignment(selected);
+
                 teacherListView.refresh();
                 showAlert(Alert.AlertType.INFORMATION, "Thành công", "Đã lưu thông tin giáo viên!");
             } catch (Exception e) {
@@ -325,12 +638,200 @@ public class TeacherController {
         }
     }
 
+    private void checkImplicitHomeroomAssignment(Teacher teacher) {
+        // Iterate through current assignments to find special subjects
+        for (Assignment a : currentAssignments) {
+            Subject s = repositoryOrchestrator.getSubjectRepository().getById(a.getSubjectId());
+            if (s == null) continue;
+
+            String name = s.getName().toLowerCase();
+            boolean isSpecial = s.getId().equals(SubjectConstants.FLAG_SALUTE_ID) ||
+                    s.getId().equals(SubjectConstants.CLASS_MEETING_ID) ||
+                    name.contains("chào cờ") ||
+                    name.contains("sinh hoạt") ||
+                    name.contains("shcn");
+
+            if (isSpecial) {
+                // Found a special subject assignment. Ensure teacher is homeroom for this class.
+                Clazz clazz = repositoryOrchestrator.getClassRepository().getById(a.getClassId());
+                if (clazz != null) {
+                    // If not already homeroom, assign it (we assume conflicts were checked in handleBatchAdd or handleHomeroomAssignment)
+                    if (!teacher.getId().equals(clazz.getHomeroomTeacherId())) {
+                        clazz.setHomeroomTeacherId(teacher.getId());
+                        repositoryOrchestrator.getClassRepository().save(clazz);
+
+                        // Update UI if needed (though we are likely refreshing or saving)
+                        if (!chkHomeroom.isSelected()) {
+                            chkHomeroom.setSelected(true);
+                            for (Clazz c : homeroomClassComboBox.getItems()) {
+                                if (c.getId().equals(clazz.getId())) {
+                                    homeroomClassComboBox.setValue(c);
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Also ensure the OTHER special subject is assigned
+                        assignHomeroomDuties(clazz, teacher);
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean handleHomeroomAssignment(Teacher teacher) {
+        // 1. Clear previous homeroom assignment for this teacher
+        Clazz previousClass = repositoryOrchestrator.getClassRepository().findByHomeroomTeacher(teacher.getId());
+        if (previousClass != null) {
+            // If the teacher was assigned to a class, but now checkbox is unchecked or a different class is selected
+            if (!chkHomeroom.isSelected() || (homeroomClassComboBox.getValue() != null && !homeroomClassComboBox.getValue().getId().equals(previousClass.getId()))) {
+                previousClass.setHomeroomTeacherId(null);
+                repositoryOrchestrator.getClassRepository().save(previousClass);
+
+                // Remove duties from previous class
+                removeHomeroomDuties(previousClass, teacher);
+            }
+        }
+
+        // 2. Assign new homeroom class if selected
+        if (chkHomeroom.isSelected() && homeroomClassComboBox.getValue() != null) {
+            Clazz selectedClass = homeroomClassComboBox.getValue();
+
+            // Check if this class already has a homeroom teacher (and it's not this teacher)
+            Clazz freshClass = repositoryOrchestrator.getClassRepository().getById(selectedClass.getId());
+
+            if (freshClass.getHomeroomTeacherId() != null && !freshClass.getHomeroomTeacherId().equals(teacher.getId())) {
+                // Conflict: Class already has a homeroom teacher
+                Teacher existingTeacher = repositoryOrchestrator.getTeacherRepository().getById(freshClass.getHomeroomTeacherId());
+
+                // Ask user for confirmation to overwrite
+                Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+                confirmAlert.setTitle("Xác nhận thay đổi");
+                confirmAlert.setHeaderText("Xung đột giáo viên chủ nhiệm");
+                confirmAlert.setContentText("Lớp " + freshClass.getClassName() + " đã có giáo viên chủ nhiệm là " +
+                        (existingTeacher != null ? existingTeacher.getName() : "Unknown") +
+                        ". Bạn có muốn thay thế bằng giáo viên hiện tại không?");
+
+                Optional<ButtonType> result = confirmAlert.showAndWait();
+                if (result.isEmpty() || result.get() != ButtonType.OK) {
+                    return false; // Exit if they didn't explicitly say OK
+                }
+            }
+
+            // Check if teacher is already homeroom for another class (One teacher - One class)
+            Clazz otherClass = repositoryOrchestrator.getClassRepository().findByHomeroomTeacher(teacher.getId());
+            if (otherClass != null && !otherClass.getId().equals(freshClass.getId())) {
+                showAlert(Alert.AlertType.ERROR, "Xung đột", "Giáo viên này đang là chủ nhiệm của lớp " + otherClass.getClassName() + ".");
+                return false;
+            }
+
+            freshClass.setHomeroomTeacherId(teacher.getId());
+            repositoryOrchestrator.getClassRepository().save(freshClass);
+
+            // 3. Automatically assign "Chào cờ" and "Sinh hoạt lớp"
+            assignHomeroomDuties(freshClass, teacher);
+        }
+        return true;
+    }
+
+    private void assignHomeroomDuties(Clazz clazz, Teacher teacher) {
+        List<Subject> subjects = repositoryOrchestrator.getSubjectRepository().getAll();
+        String flagSaluteId = null;
+        String classMeetingId = null;
+
+        for (Subject s : subjects) {
+            if (s.getId().equals(SubjectConstants.FLAG_SALUTE_ID)) {
+                flagSaluteId = s.getId();
+            } else if (s.getId().equals(SubjectConstants.CLASS_MEETING_ID)) {
+                classMeetingId = s.getId();
+            }
+            // Fallback to name check if ID doesn't match (for backward compatibility or if IDs are different)
+            else {
+                String name = s.getName().toLowerCase();
+                if (name.contains("chào cờ")) {
+                    flagSaluteId = s.getId();
+                } else if (name.contains("sinh hoạt") || name.contains("shcn")) {
+                    classMeetingId = s.getId();
+                }
+            }
+        }
+
+        if (flagSaluteId != null) {
+            assignTeacherToSubject(clazz, teacher, flagSaluteId);
+        }
+
+        if (classMeetingId != null) {
+            assignTeacherToSubject(clazz, teacher, classMeetingId);
+        }
+    }
+
+    private void removeHomeroomDuties(Clazz clazz, Teacher teacher) {
+        List<Subject> subjects = repositoryOrchestrator.getSubjectRepository().getAll();
+        String flagSaluteId = null;
+        String classMeetingId = null;
+
+        for (Subject s : subjects) {
+            if (s.getId().equals(SubjectConstants.FLAG_SALUTE_ID)) {
+                flagSaluteId = s.getId();
+            } else if (s.getId().equals(SubjectConstants.CLASS_MEETING_ID)) {
+                classMeetingId = s.getId();
+            } else {
+                String name = s.getName().toLowerCase();
+                if (name.contains("chào cờ")) {
+                    flagSaluteId = s.getId();
+                } else if (name.contains("sinh hoạt") || name.contains("shcn")) {
+                    classMeetingId = s.getId();
+                }
+            }
+        }
+
+        if (flagSaluteId != null) {
+            removeTeacherFromSubject(clazz, teacher, flagSaluteId);
+        }
+
+        if (classMeetingId != null) {
+            removeTeacherFromSubject(clazz, teacher, classMeetingId);
+        }
+    }
+
+    private void assignTeacherToSubject(Clazz clazz, Teacher teacher, String subjectId) {
+        // Check if assignment exists in DB
+        Assignment existing = repositoryOrchestrator.getAssignmentRepository().getByClassAndSubject(clazz.getId(), subjectId);
+        if (existing != null) {
+            existing.setTeacherId(teacher.getId());
+            repositoryOrchestrator.getAssignmentRepository().save(existing);
+        } else {
+            Assignment newAssignment = new Assignment(UUID.randomUUID().toString(), teacher.getId(), subjectId, clazz.getId());
+            repositoryOrchestrator.getAssignmentRepository().save(newAssignment);
+            // Also add to current view if not present
+            boolean inView = currentAssignments.stream().anyMatch(a -> a.getId().equals(newAssignment.getId()));
+            if (!inView) {
+                currentAssignments.add(newAssignment);
+            }
+        }
+    }
+
+    private void removeTeacherFromSubject(Clazz clazz, Teacher teacher, String subjectId) {
+        Assignment existing = repositoryOrchestrator.getAssignmentRepository().getByClassAndSubject(clazz.getId(), subjectId);
+        if (existing != null && existing.getTeacherId().equals(teacher.getId())) {
+            repositoryOrchestrator.getAssignmentRepository().delete(existing.getId());
+            currentAssignments.removeIf(a -> a.getId().equals(existing.getId()));
+        }
+    }
+
     private void deleteTeacher() {
         Teacher selected = teacherListView.getSelectionModel().getSelectedItem();
         if (selected != null) {
             Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Xoá giáo viên " + selected + "?", ButtonType.YES, ButtonType.NO);
             alert.showAndWait().ifPresent(response -> {
                 if (response == ButtonType.YES) {
+                    // Unassign homeroom if any
+                    Clazz homeroomClass = repositoryOrchestrator.getClassRepository().findByHomeroomTeacher(selected.getId());
+                    if (homeroomClass != null) {
+                        homeroomClass.setHomeroomTeacherId(null);
+                        repositoryOrchestrator.getClassRepository().save(homeroomClass);
+                    }
+
                     // Delete assignments first
                     repositoryOrchestrator.getAssignmentRepository().deleteByTeacherId(selected.getId());
                     // Delete teacher
@@ -385,10 +886,13 @@ public class TeacherController {
 
     private void loadData() {
         List<Subject> subjects = repositoryOrchestrator.getSubjectRepository().getAll();
+
+        // Allow all subjects, including special ones
         subjectComboBox.setItems(FXCollections.observableArrayList(subjects));
 
         List<Clazz> classes = repositoryOrchestrator.getClassRepository().getAll();
         multiClassListView.setItems(FXCollections.observableArrayList(classes));
+        homeroomClassComboBox.setItems(FXCollections.observableArrayList(classes));
 
         List<Teacher> teachers = repositoryOrchestrator.getTeacherRepository().getAll();
         teacherList.addAll(teachers);
