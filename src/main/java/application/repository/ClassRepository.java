@@ -28,11 +28,14 @@ public class ClassRepository implements IRepository {
                 Statement stmt = conn.createStatement()
         ) {
             stmt.execute(sql);
-            // Attempt to add column if it doesn't exist (migration for existing databases)
-            try {
-                stmt.execute("ALTER TABLE classes ADD COLUMN homeroom_teacher_id TEXT;");
-            } catch (SQLException ignored) {
-                // Column likely already exists
+
+            DatabaseMetaData md = conn.getMetaData();
+            try (ResultSet rs = md.getColumns(null, null, "classes", "homeroom_teacher_id")) {
+                if (!rs.next()) {
+                    // Column is missing, add it now
+                    stmt.execute("ALTER TABLE classes ADD COLUMN homeroom_teacher_id TEXT;");
+                    System.out.println("Migration: Added homeroom_teacher_id to classes table.");
+                }
             }
             System.out.println("Table classes created/updated successfully");
         } catch (SQLException e) {
