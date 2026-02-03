@@ -3,10 +3,18 @@ package application.models;
 public class Subject {
     String id;
     String name;
+    String label;
 
     public Subject(String id, String name) {
         this.id = id;
         this.name = name;
+        this.label = name; // Default label is name
+    }
+
+    public Subject(String id, String name, String label) {
+        this.id = id;
+        this.name = name;
+        this.label = label;
     }
 
     public String getId() {
@@ -23,6 +31,14 @@ public class Subject {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getLabel() {
+        return label;
+    }
+
+    public void setLabel(String label) {
+        this.label = label;
     }
 
     @Override
