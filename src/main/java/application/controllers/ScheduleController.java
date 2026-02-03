@@ -462,5 +462,3 @@ public class ScheduleController {
         });
     }
 }
-
-// TODO: close gap in label and textbox
