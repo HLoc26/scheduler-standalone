@@ -21,7 +21,7 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
     private static final String PREF_ENGINE_PATH = "engine_path";
     private static final String DEFAULT_ENGINE_PATH = "";
     private List<TaskData> inputData;
-    
+
     // Configuration parameters
     private int maxTime = 180; // Default 180s
     private int maxWorkers = Runtime.getRuntime().availableProcessors() / 2; // Default half cores
@@ -90,17 +90,17 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
                         command.add("-jar");
                     }
                     command.add(enginePath);
-                    
+
                     command.add("-i");
                     command.add(tmpIn.getAbsolutePath());
-                    
+
                     command.add("-o");
                     command.add(tmpOut.getAbsolutePath());
 
                     // Add configuration flags
                     command.add("-w");
                     command.add(String.valueOf(maxWorkers));
-                    
+
                     command.add("-t");
                     command.add(String.valueOf(maxTime));
 

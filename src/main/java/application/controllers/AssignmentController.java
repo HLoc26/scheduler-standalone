@@ -61,15 +61,15 @@ public class AssignmentController {
                 .filter(s -> {
                     String name = s.getName().toLowerCase();
                     return !s.getId().equals(SubjectConstants.FLAG_SALUTE_ID) &&
-                           !s.getId().equals(SubjectConstants.CLASS_MEETING_ID) &&
-                           !name.contains("chào cờ") &&
-                           !name.contains("sinh hoạt") &&
-                           !name.contains("shcn");
+                            !s.getId().equals(SubjectConstants.CLASS_MEETING_ID) &&
+                            !name.contains("chào cờ") &&
+                            !name.contains("sinh hoạt") &&
+                            !name.contains("shcn");
                 })
                 .collect(Collectors.toList());
-        
+
         // Add a virtual subject for Homeroom Duty
-        subjects.add(0, new Subject(SubjectConstants.HOMEROOM_SUBJECT_ID, "GV Chủ nhiệm"));
+        subjects.addFirst(new Subject(SubjectConstants.HOMEROOM_SUBJECT_ID, "GVCN"));
 
         classes = repo.getClassRepository().getAll();
         teachers = repo.getTeacherRepository().getAll();
@@ -82,7 +82,7 @@ public class AssignmentController {
                         a -> a,
                         (existing, replacement) -> existing // Handle duplicates if any
                 ));
-        
+
         // Add virtual assignments for Homeroom Teachers
         for (Clazz c : classes) {
             if (c.getHomeroomTeacherId() != null) {
@@ -216,7 +216,6 @@ public class AssignmentController {
 
             StackPane cell = new StackPane(lbl);
             cell.setPrefWidth(40);
-//            cell.setPrefHeight(40);
             cell.setStyle("-fx-background-color: #e2e8f0; -fx-border-color: #cbd5e1;");
 
             assignmentGrid.add(cell, c + 1, 0);
@@ -330,20 +329,15 @@ public class AssignmentController {
                 return;
             }
         }
-        
+
         // --- HOMEROOM CONSTRAINT CHECK ---
         if (s.getId().equals(SubjectConstants.HOMEROOM_SUBJECT_ID)) {
-            // Check if class already has a homeroom teacher (in DB or Pending)
-            // 1. Check Pending for this class
-            // 2. Check DB for this class
-            // Note: Since we are in handleLocalUpdate, we are proposing a NEW teacher 't' for class 'c'
-            
+            // Check if class already has a homeroom teacher (in Pending and DB) by proposing a NEW teacher 't' for class 'c'
             // Check if 't' is already homeroom for another class
-            // Scan pending changes
             for (Map.Entry<String, Assignment> entry : pendingChanges.entrySet()) {
                 if (entry.getKey().startsWith(SubjectConstants.HOMEROOM_SUBJECT_ID + "_")) {
                     if (entry.getValue().getTeacherId().equals(t.getId()) && !entry.getValue().getClassId().equals(c.getId())) {
-                        showAlert(Alert.AlertType.ERROR, "Xung đột", "Giáo viên " + t.getName() + " đang được gán làm chủ nhiệm lớp khác trong các thay đổi chưa lưu.");
+                        showAlert(Alert.AlertType.ERROR, "Xung đột", "Giáo viên " + t.getName() + " đang làm chủ nhiệm lớp khác trong các thay đổi chưa lưu.");
                         return;
                     }
                 }
@@ -354,8 +348,8 @@ public class AssignmentController {
                 // Check if we have a pending change that REMOVES this teacher from 'otherClass'
                 String otherKey = genKey(SubjectConstants.HOMEROOM_SUBJECT_ID, otherClass.getId());
                 if (!pendingChanges.containsKey(otherKey)) {
-                     showAlert(Alert.AlertType.ERROR, "Xung đột", "Giáo viên " + t.getName() + " đang là chủ nhiệm của lớp " + otherClass.getClassName() + ".");
-                     return;
+                    showAlert(Alert.AlertType.ERROR, "Xung đột", "Giáo viên " + t.getName() + " đang là chủ nhiệm của lớp " + otherClass.getClassName() + ".");
+                    return;
                 }
             }
         }
@@ -461,12 +455,12 @@ public class AssignmentController {
             if (!normalAssignments.isEmpty()) {
                 repo.getAssignmentRepository().saveAll(normalAssignments);
             }
-            
+
             // 2. Save Homeroom updates
             for (Map.Entry<String, String> entry : homeroomUpdates.entrySet()) {
                 String classId = entry.getKey();
                 String teacherId = entry.getValue();
-                
+
                 Clazz clazz = repo.getClassRepository().getById(classId);
                 if (clazz != null) {
                     // Check constraint again before saving (just in case)
@@ -477,10 +471,10 @@ public class AssignmentController {
                         existingClass.setHomeroomTeacherId(null);
                         repo.getClassRepository().save(existingClass);
                     }
-                    
+
                     clazz.setHomeroomTeacherId(teacherId);
                     repo.getClassRepository().save(clazz);
-                    
+
                     // Auto-assign special subjects
                     assignHomeroomDuties(clazz, teacherId);
                 }
@@ -501,7 +495,7 @@ public class AssignmentController {
             showAlert(Alert.AlertType.ERROR, "Error", "Save failed: " + e.getMessage());
         }
     }
-    
+
     private void assignHomeroomDuties(Clazz clazz, String teacherId) {
         // Similar logic to TeacherController
         List<Subject> allSubjects = repo.getSubjectRepository().getAll();
@@ -517,11 +511,11 @@ public class AssignmentController {
                 else if (name.contains("sinh hoạt") || name.contains("shcn")) classMeetingId = s.getId();
             }
         }
-        
+
         if (flagSaluteId != null) saveAssignment(clazz.getId(), teacherId, flagSaluteId);
         if (classMeetingId != null) saveAssignment(clazz.getId(), teacherId, classMeetingId);
     }
-    
+
     private void saveAssignment(String classId, String teacherId, String subjectId) {
         Assignment existing = repo.getAssignmentRepository().getByClassAndSubject(classId, subjectId);
         if (existing != null) {

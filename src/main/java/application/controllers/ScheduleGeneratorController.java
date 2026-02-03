@@ -35,10 +35,10 @@ public class ScheduleGeneratorController {
     private final SchedulerEngineService schedulerEngineService;
     private final int maxTime;
     private final int maxWorkers;
-
+    // Checklist items
+    private final List<ChecklistItem> checklistItems = new ArrayList<>();
     // Callback to call main layout to update screen
     private Runnable onFinishedCallback;
-
     @FXML
     private Label lblSubStatus;
     @FXML
@@ -51,16 +51,11 @@ public class ScheduleGeneratorController {
     private Button btnCancel;
     @FXML
     private Button btnViewResult;
-
     // Keep ref to running tasks so that we can cancel
     private Worker<?> currentWorker;
     private volatile boolean isProcessFinished = false;
-    
     // Store the progress where Phase 1 ended, to continue smoothly in Phase 2
-    private double phase1EndProgress = 0.4; 
-
-    // Checklist items
-    private final List<ChecklistItem> checklistItems = new ArrayList<>();
+    private double phase1EndProgress = 0.4;
 
     public ScheduleGeneratorController(RepositoryOrchestrator repo, int maxTime, int maxWorkers) {
         this.repo = repo;
@@ -138,7 +133,7 @@ public class ScheduleGeneratorController {
             if (result != null && !result.isEmpty()) {
                 // Mark all as done immediately if engine finishes early
                 checklistItems.forEach(ChecklistItem::markDone);
-                
+
                 lblSubStatus.setText("Engine đã trả về " + result.size() + " slots.");
                 // Chuyển sang Phase 3: Lưu vào DB
                 saveData(result);
@@ -154,10 +149,10 @@ public class ScheduleGeneratorController {
     private void bindUiToWorker(Worker<?> worker) {
         // Unbind cũ nếu có
         progressBar.progressProperty().unbind();
-        
+
         // Bind mới
         progressBar.progressProperty().bind(worker.progressProperty());
-        
+
         // Bind percent label to progress
         worker.progressProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
@@ -165,7 +160,7 @@ public class ScheduleGeneratorController {
                 lblPercent.setText(percent + "%");
             }
         });
-        
+
         this.currentWorker = worker;
     }
 
@@ -190,7 +185,7 @@ public class ScheduleGeneratorController {
             @Override
             protected List<TaskData> call() throws Exception {
                 // Calculate random target between 10 and 20
-                int targetPercent = 10 + (int)(Math.random() * 11);
+                int targetPercent = 10 + (int) (Math.random() * 11);
                 phase1EndProgress = targetPercent / 100.0;
 
                 updateMessage("[INFO] Đang khởi tạo kết nối cơ sở dữ liệu...");
@@ -199,7 +194,7 @@ public class ScheduleGeneratorController {
                 // 1. Load Data
                 updateMessage("[INFO] Đang tải danh sách giáo viên...");
                 List<Teacher> teachers = repo.getTeacherRepository().getAll();
-                Thread.sleep(100); 
+                Thread.sleep(100);
                 updateProgress(targetPercent * 0.25, 100);
 
                 updateMessage("[INFO] Đang tải chương trình học...");
@@ -254,15 +249,15 @@ public class ScheduleGeneratorController {
 
                 while (System.currentTimeMillis() < endTime && !isProcessFinished) {
                     long now = System.currentTimeMillis();
-                    double ratio = (double)(now - startTime) / targetDuration;
+                    double ratio = (double) (now - startTime) / targetDuration;
                     if (ratio > 1.0) ratio = 1.0;
 
                     // Map ratio (0.0 -> 1.0) to Progress (phase1EndProgress -> 0.9)
                     double progress = phase1EndProgress + ((0.9 - phase1EndProgress) * ratio);
                     updateProgress(progress, 1.0);
-                    
+
                     // Checklist items
-                    int expectedDone = (int)(ratio * totalItems);
+                    int expectedDone = (int) (ratio * totalItems);
                     while (currentItemIndex < expectedDone && currentItemIndex < totalItems) {
                         int idx = currentItemIndex;
                         Platform.runLater(() -> checklistItems.get(idx).markDone());
@@ -271,14 +266,14 @@ public class ScheduleGeneratorController {
 
                     Thread.sleep(50); // Update every 50ms for smooth animation
                 }
-                
+
                 // If finished naturally (time up), ensure all items done
                 if (!isProcessFinished) {
-                     for (int i = currentItemIndex; i < totalItems; i++) {
-                         int idx = i;
-                         Platform.runLater(() -> checklistItems.get(idx).markDone());
-                     }
-                     updateProgress(0.9, 1.0);
+                    for (int i = currentItemIndex; i < totalItems; i++) {
+                        int idx = i;
+                        Platform.runLater(() -> checklistItems.get(idx).markDone());
+                    }
+                    updateProgress(0.9, 1.0);
                 }
                 return null;
             }
@@ -375,7 +370,7 @@ public class ScheduleGeneratorController {
         public ChecklistItem(String text) {
             view = new HBox(10);
             view.setAlignment(Pos.CENTER_LEFT);
-            
+
             iconContainer = new StackPane();
             iconContainer.setPrefSize(20, 20);
 
@@ -383,9 +378,9 @@ public class ScheduleGeneratorController {
             ProgressIndicator spinner = new ProgressIndicator();
             spinner.setPrefSize(20, 20);
             spinner.setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
-            
+
             iconContainer.getChildren().add(spinner);
-            
+
             label = new Label(text);
             label.setFont(new Font(14));
             label.setTextFill(Color.web("#34495e")); // pale blue
@@ -400,12 +395,12 @@ public class ScheduleGeneratorController {
         public void markDone() {
             if (isDone) return;
             isDone = true;
-            
+
             // Create Green Tick
             SVGPath tick = new SVGPath();
             tick.setContent("M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"); // Material Design Check
             tick.setFill(Color.web("#27ae60"));
-            
+
             iconContainer.getChildren().clear();
             iconContainer.getChildren().add(tick);
 

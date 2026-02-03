@@ -85,7 +85,7 @@ public class MainController {
         try {
             ScheduleConfigController configController = new ScheduleConfigController(repo);
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/application/ScheduleConfig.fxml"));
-            
+
             // Use setControllerFactory instead of setController to avoid "Controller value already specified" error
             loader.setControllerFactory(clazz -> {
                 if (clazz == ScheduleConfigController.class) {

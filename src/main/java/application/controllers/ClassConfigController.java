@@ -14,6 +14,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
+import scheduler.common.constants.SubjectConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -121,13 +122,13 @@ public class ClassConfigController {
                 return null;
             }
         });
-        
+
         homeroomTeacherComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
             if (currentSelectingClass != null) {
                 if (newVal != null) {
                     currentSelectingClass.setHomeroomTeacherId(newVal.getId());
                     repo.getClassRepository().save(currentSelectingClass);
-                    
+
                     // Automatically assign Flag Salute and Class Meeting
                     assignHomeroomDuties(currentSelectingClass, newVal);
                 } else {
@@ -140,31 +141,27 @@ public class ClassConfigController {
 
     private void assignHomeroomDuties(Clazz clazz, Teacher teacher) {
         // Find subjects for Flag Salute and Class Meeting
-        // Assuming subject names are "Chào cờ" and "Sinh hoạt lớp" or similar.
-        // Better to use IDs or a specific property, but for now let's search by name or assume standard IDs if possible.
-        // Or we can iterate all subjects and find matches.
-        
         List<Subject> subjects = repo.getSubjectRepository().getAll();
         String flagSaluteId = null;
         String classMeetingId = null;
-        
+
         for (Subject s : subjects) {
-            String name = s.getName().toLowerCase();
-            if (name.contains("chào cờ")) {
+            String id = s.getId();
+            if (id.equals(SubjectConstants.FLAG_SALUTE_ID)) {
                 flagSaluteId = s.getId();
-            } else if (name.contains("sinh hoạt") || name.contains("shcn")) {
+            } else if (id.equals(SubjectConstants.CLASS_MEETING_ID)) {
                 classMeetingId = s.getId();
             }
         }
-        
+
         if (flagSaluteId != null) {
             assignTeacherToSubject(clazz, teacher, flagSaluteId);
         }
-        
+
         if (classMeetingId != null) {
             assignTeacherToSubject(clazz, teacher, classMeetingId);
         }
-        
+
         // Refresh table to show new assignments
         curriculumTable.refresh();
     }
@@ -386,7 +383,7 @@ public class ClassConfigController {
                     handleSelection(newVal); // Load data to the main panel
                 }
             });
-            
+
             // Add focus listener to clear selection when focus lost
             list.focusedProperty().addListener((obs, oldVal, newVal) -> {
                 if (!newVal) {
@@ -445,7 +442,7 @@ public class ClassConfigController {
             btnSave.setText("LƯU CẤU HÌNH KHỐI");
 
             setButtonVisibility(true, false, true);
-            
+
             // Hide Homeroom Teacher controls
             lblHomeroomTeacher.setVisible(false);
             homeroomTeacherComboBox.setVisible(false);
@@ -481,11 +478,11 @@ public class ClassConfigController {
             btnSave.setText("CHẾ ĐỘ XEM");
 
             setButtonVisibility(false, true, false);
-            
+
             // Show Homeroom Teacher controls
             lblHomeroomTeacher.setVisible(true);
             homeroomTeacherComboBox.setVisible(true);
-            
+
             // Set current homeroom teacher
             if (c.getHomeroomTeacherId() != null) {
                 Teacher t = repo.getTeacherRepository().getById(c.getHomeroomTeacherId());

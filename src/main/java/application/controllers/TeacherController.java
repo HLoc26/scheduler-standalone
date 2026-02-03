@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 public class TeacherController {
 
@@ -87,35 +86,30 @@ public class TeacherController {
         setupButtons();
         setupHomeroomControls();
 
-        loadData(); // Will be replaced by load from DB
+        loadData();
         Platform.runLater(() -> root.setDividerPosition(0, 0.2));
-        
+
         // Check for implicit homeroom assignments on startup
         Platform.runLater(this::checkAllImplicitHomeroomAssignments);
     }
-    
+
     private void checkAllImplicitHomeroomAssignments() {
         // This method scans all assignments in the DB and ensures homeroom consistency
         List<Assignment> allAssignments = repositoryOrchestrator.getAssignmentRepository().getAll();
         List<Subject> subjects = repositoryOrchestrator.getSubjectRepository().getAll();
-        
+
         for (Assignment a : allAssignments) {
             Subject s = subjects.stream().filter(sub -> sub.getId().equals(a.getSubjectId())).findFirst().orElse(null);
             if (s == null) continue;
-            
-            String name = s.getName().toLowerCase();
+
             boolean isSpecial = s.getId().equals(SubjectConstants.FLAG_SALUTE_ID) ||
-                                s.getId().equals(SubjectConstants.CLASS_MEETING_ID) ||
-                                name.contains("chào cờ") || 
-                                name.contains("sinh hoạt") || 
-                                name.contains("shcn");
-                                
+                    s.getId().equals(SubjectConstants.CLASS_MEETING_ID);
+
             if (isSpecial) {
                 Clazz clazz = repositoryOrchestrator.getClassRepository().getById(a.getClassId());
                 if (clazz != null) {
                     // If class has no homeroom teacher, or different one, update it
-                    // Note: This auto-fix might overwrite existing homeroom if data is inconsistent.
-                    // Assuming special subject assignment implies homeroom duty.
+                    // Special subject assignment implies homeroom duty.
                     if (!a.getTeacherId().equals(clazz.getHomeroomTeacherId())) {
                         clazz.setHomeroomTeacherId(a.getTeacherId());
                         repositoryOrchestrator.getClassRepository().save(clazz);
@@ -196,12 +190,8 @@ public class TeacherController {
         }
 
         // Check if user is trying to manually assign special subjects
-        String subjectName = subject.getName().toLowerCase();
         boolean isSpecialSubject = subject.getId().equals(SubjectConstants.FLAG_SALUTE_ID) ||
-                                   subject.getId().equals(SubjectConstants.CLASS_MEETING_ID) ||
-                                   subjectName.contains("chào cờ") || 
-                                   subjectName.contains("sinh hoạt") || 
-                                   subjectName.contains("shcn");
+                subject.getId().equals(SubjectConstants.CLASS_MEETING_ID);
 
         // Create Assignment for each selected class
         for (Clazz clazz : selectedClasses) {
@@ -223,15 +213,15 @@ public class TeacherController {
                 Clazz freshClass = repositoryOrchestrator.getClassRepository().getById(clazz.getId());
                 if (freshClass.getHomeroomTeacherId() != null && !freshClass.getHomeroomTeacherId().equals(selectedTeacher.getId())) {
                     Teacher existingTeacher = repositoryOrchestrator.getTeacherRepository().getById(freshClass.getHomeroomTeacherId());
-                    
+
                     // Ask user for confirmation to overwrite
                     Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
                     confirmAlert.setTitle("Xác nhận thay đổi");
                     confirmAlert.setHeaderText("Xung đột giáo viên chủ nhiệm");
-                    confirmAlert.setContentText("Lớp " + freshClass.getClassName() + " đã có giáo viên chủ nhiệm là " + 
-                            (existingTeacher != null ? existingTeacher.getName() : "Unknown") + 
+                    confirmAlert.setContentText("Lớp " + freshClass.getClassName() + " đã có giáo viên chủ nhiệm là " +
+                            (existingTeacher != null ? existingTeacher.getName() : "Unknown") +
                             ". Bạn có muốn thay thế bằng giáo viên hiện tại không?");
-                            
+
                     Optional<ButtonType> result = confirmAlert.showAndWait();
                     if (result.isPresent() && result.get() == ButtonType.OK) {
                         // User confirmed overwrite. 
@@ -241,14 +231,14 @@ public class TeacherController {
                         continue; // Skip this class if user cancels
                     }
                 }
-                
+
                 // Check if teacher is already homeroom for another class
                 Clazz otherClass = repositoryOrchestrator.getClassRepository().findByHomeroomTeacher(selectedTeacher.getId());
                 if (otherClass != null && !otherClass.getId().equals(freshClass.getId())) {
                     showAlert(Alert.AlertType.ERROR, "Xung đột", "Giáo viên này đang là chủ nhiệm của lớp " + otherClass.getClassName() + ".");
                     continue; // Skip this class
                 }
-                
+
                 // If checks pass, we will implicitly set this teacher as homeroom teacher upon saving
                 // For UI feedback, we can update the homeroom controls immediately if single class selected
                 if (selectedClasses.size() == 1) {
@@ -446,7 +436,7 @@ public class TeacherController {
                     showTeacherDetails(selected);
                     return;
                 }
-                
+
                 // Check for implicit homeroom assignment from subjects
                 checkImplicitHomeroomAssignment(selected);
 
@@ -458,20 +448,20 @@ public class TeacherController {
             }
         }
     }
-    
+
     private void checkImplicitHomeroomAssignment(Teacher teacher) {
         // Iterate through current assignments to find special subjects
         for (Assignment a : currentAssignments) {
             Subject s = repositoryOrchestrator.getSubjectRepository().getById(a.getSubjectId());
             if (s == null) continue;
-            
+
             String name = s.getName().toLowerCase();
             boolean isSpecial = s.getId().equals(SubjectConstants.FLAG_SALUTE_ID) ||
-                                s.getId().equals(SubjectConstants.CLASS_MEETING_ID) ||
-                                name.contains("chào cờ") || 
-                                name.contains("sinh hoạt") || 
-                                name.contains("shcn");
-                                
+                    s.getId().equals(SubjectConstants.CLASS_MEETING_ID) ||
+                    name.contains("chào cờ") ||
+                    name.contains("sinh hoạt") ||
+                    name.contains("shcn");
+
             if (isSpecial) {
                 // Found a special subject assignment. Ensure teacher is homeroom for this class.
                 Clazz clazz = repositoryOrchestrator.getClassRepository().getById(a.getClassId());
@@ -480,18 +470,18 @@ public class TeacherController {
                     if (!teacher.getId().equals(clazz.getHomeroomTeacherId())) {
                         clazz.setHomeroomTeacherId(teacher.getId());
                         repositoryOrchestrator.getClassRepository().save(clazz);
-                        
+
                         // Update UI if needed (though we are likely refreshing or saving)
                         if (!chkHomeroom.isSelected()) {
-                             chkHomeroom.setSelected(true);
-                             for (Clazz c : homeroomClassComboBox.getItems()) {
+                            chkHomeroom.setSelected(true);
+                            for (Clazz c : homeroomClassComboBox.getItems()) {
                                 if (c.getId().equals(clazz.getId())) {
                                     homeroomClassComboBox.setValue(c);
                                     break;
                                 }
                             }
                         }
-                        
+
                         // Also ensure the OTHER special subject is assigned
                         assignHomeroomDuties(clazz, teacher);
                     }
@@ -508,7 +498,7 @@ public class TeacherController {
             if (!chkHomeroom.isSelected() || (homeroomClassComboBox.getValue() != null && !homeroomClassComboBox.getValue().getId().equals(previousClass.getId()))) {
                 previousClass.setHomeroomTeacherId(null);
                 repositoryOrchestrator.getClassRepository().save(previousClass);
-                
+
                 // Remove duties from previous class
                 removeHomeroomDuties(previousClass, teacher);
             }
@@ -517,40 +507,35 @@ public class TeacherController {
         // 2. Assign new homeroom class if selected
         if (chkHomeroom.isSelected() && homeroomClassComboBox.getValue() != null) {
             Clazz selectedClass = homeroomClassComboBox.getValue();
-            
+
             // Check if this class already has a homeroom teacher (and it's not this teacher)
-            // Note: The object in ComboBox might be stale, so fetch fresh from DB or trust the ID
             Clazz freshClass = repositoryOrchestrator.getClassRepository().getById(selectedClass.getId());
-            
+
             if (freshClass.getHomeroomTeacherId() != null && !freshClass.getHomeroomTeacherId().equals(teacher.getId())) {
-                 // Conflict: Class already has a homeroom teacher
-                 Teacher existingTeacher = repositoryOrchestrator.getTeacherRepository().getById(freshClass.getHomeroomTeacherId());
-                 
-                 // Ask user for confirmation to overwrite
-                 Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
-                 confirmAlert.setTitle("Xác nhận thay đổi");
-                 confirmAlert.setHeaderText("Xung đột giáo viên chủ nhiệm");
-                 confirmAlert.setContentText("Lớp " + freshClass.getClassName() + " đã có giáo viên chủ nhiệm là " + 
-                        (existingTeacher != null ? existingTeacher.getName() : "Unknown") + 
+                // Conflict: Class already has a homeroom teacher
+                Teacher existingTeacher = repositoryOrchestrator.getTeacherRepository().getById(freshClass.getHomeroomTeacherId());
+
+                // Ask user for confirmation to overwrite
+                Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+                confirmAlert.setTitle("Xác nhận thay đổi");
+                confirmAlert.setHeaderText("Xung đột giáo viên chủ nhiệm");
+                confirmAlert.setContentText("Lớp " + freshClass.getClassName() + " đã có giáo viên chủ nhiệm là " +
+                        (existingTeacher != null ? existingTeacher.getName() : "Unknown") +
                         ". Bạn có muốn thay thế bằng giáo viên hiện tại không?");
-                        
-                 Optional<ButtonType> result = confirmAlert.showAndWait();
-                 if (result.isPresent() && result.get() == ButtonType.OK) {
-                     // User confirmed overwrite. Proceed with assignment.
-                 } else {
-                     return false; // User cancelled
-                 }
+
+                Optional<ButtonType> result = confirmAlert.showAndWait();
+                if (result.isEmpty() || result.get() != ButtonType.OK) {
+                    return false; // Exit if they didn't explicitly say OK
+                }
             }
-            
-            // Check if teacher is already homeroom for another class (Constraint 1: One teacher - One class)
-            // This is implicitly handled because we cleared previousClass above.
-            // But let's double check if there's any other class pointing to this teacher (shouldn't happen if DB is consistent)
+
+            // Check if teacher is already homeroom for another class (One teacher - One class)
             Clazz otherClass = repositoryOrchestrator.getClassRepository().findByHomeroomTeacher(teacher.getId());
             if (otherClass != null && !otherClass.getId().equals(freshClass.getId())) {
-                 showAlert(Alert.AlertType.ERROR, "Xung đột", "Giáo viên này đang là chủ nhiệm của lớp " + otherClass.getClassName() + ".");
-                 return false;
+                showAlert(Alert.AlertType.ERROR, "Xung đột", "Giáo viên này đang là chủ nhiệm của lớp " + otherClass.getClassName() + ".");
+                return false;
             }
-            
+
             freshClass.setHomeroomTeacherId(teacher.getId());
             repositoryOrchestrator.getClassRepository().save(freshClass);
 
@@ -712,7 +697,7 @@ public class TeacherController {
 
     private void loadData() {
         List<Subject> subjects = repositoryOrchestrator.getSubjectRepository().getAll();
-        
+
         // Allow all subjects, including special ones
         subjectComboBox.setItems(FXCollections.observableArrayList(subjects));
 

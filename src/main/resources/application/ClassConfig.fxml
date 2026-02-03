@@ -97,7 +97,8 @@
                     </HBox>
 
                     <HBox alignment="CENTER_LEFT" spacing="10.0">
-                        <Label fx:id="lblHomeroomTeacher" text="Giáo viên chủ nhiệm:" style="-fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+                        <Label fx:id="lblHomeroomTeacher" text="Giáo viên chủ nhiệm:"
+                               style="-fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
                         <ComboBox fx:id="homeroomTeacherComboBox" prefWidth="200.0"/>
                     </HBox>
 
