@@ -14,6 +14,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.StringConverter;
+import scheduler.common.constants.SubjectConstants;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -55,7 +56,21 @@ public class AssignmentController {
      * Loads all necessary data from the database.
      */
     private void loadDataFromDb() {
-        subjects = repo.getSubjectRepository().getAll();
+        // Filter out special subjects
+        subjects = repo.getSubjectRepository().getAll().stream()
+                .filter(s -> {
+                    String name = s.getName().toLowerCase();
+                    return !s.getId().equals(SubjectConstants.FLAG_SALUTE_ID) &&
+                           !s.getId().equals(SubjectConstants.CLASS_MEETING_ID) &&
+                           !name.contains("chào cờ") &&
+                           !name.contains("sinh hoạt") &&
+                           !name.contains("shcn");
+                })
+                .collect(Collectors.toList());
+        
+        // Add a virtual subject for Homeroom Duty
+        subjects.add(0, new Subject(SubjectConstants.HOMEROOM_SUBJECT_ID, "GV Chủ nhiệm"));
+
         classes = repo.getClassRepository().getAll();
         teachers = repo.getTeacherRepository().getAll();
 
@@ -67,6 +82,15 @@ public class AssignmentController {
                         a -> a,
                         (existing, replacement) -> existing // Handle duplicates if any
                 ));
+        
+        // Add virtual assignments for Homeroom Teachers
+        for (Clazz c : classes) {
+            if (c.getHomeroomTeacherId() != null) {
+                String key = genKey(SubjectConstants.HOMEROOM_SUBJECT_ID, c.getId());
+                Assignment a = new Assignment(UUID.randomUUID().toString(), c.getHomeroomTeacherId(), SubjectConstants.HOMEROOM_SUBJECT_ID, c.getId());
+                assignmentDbCache.put(key, a);
+            }
+        }
     }
 
     /**
@@ -306,6 +330,35 @@ public class AssignmentController {
                 return;
             }
         }
+        
+        // --- HOMEROOM CONSTRAINT CHECK ---
+        if (s.getId().equals(SubjectConstants.HOMEROOM_SUBJECT_ID)) {
+            // Check if class already has a homeroom teacher (in DB or Pending)
+            // 1. Check Pending for this class
+            // 2. Check DB for this class
+            // Note: Since we are in handleLocalUpdate, we are proposing a NEW teacher 't' for class 'c'
+            
+            // Check if 't' is already homeroom for another class
+            // Scan pending changes
+            for (Map.Entry<String, Assignment> entry : pendingChanges.entrySet()) {
+                if (entry.getKey().startsWith(SubjectConstants.HOMEROOM_SUBJECT_ID + "_")) {
+                    if (entry.getValue().getTeacherId().equals(t.getId()) && !entry.getValue().getClassId().equals(c.getId())) {
+                        showAlert(Alert.AlertType.ERROR, "Xung đột", "Giáo viên " + t.getName() + " đang được gán làm chủ nhiệm lớp khác trong các thay đổi chưa lưu.");
+                        return;
+                    }
+                }
+            }
+            // Scan DB
+            Clazz otherClass = repo.getClassRepository().findByHomeroomTeacher(t.getId());
+            if (otherClass != null && !otherClass.getId().equals(c.getId())) {
+                // Check if we have a pending change that REMOVES this teacher from 'otherClass'
+                String otherKey = genKey(SubjectConstants.HOMEROOM_SUBJECT_ID, otherClass.getId());
+                if (!pendingChanges.containsKey(otherKey)) {
+                     showAlert(Alert.AlertType.ERROR, "Xung đột", "Giáo viên " + t.getName() + " đang là chủ nhiệm của lớp " + otherClass.getClassName() + ".");
+                     return;
+                }
+            }
+        }
 
         // Create new Assignment Object
         Assignment assignment = new Assignment();
@@ -392,11 +445,46 @@ public class AssignmentController {
         }
 
         try {
-            // 1. Convert pending map to list
-            List<Assignment> batchList = new ArrayList<>(pendingChanges.values());
+            // Separate normal assignments from Homeroom assignments
+            List<Assignment> normalAssignments = new ArrayList<>();
+            Map<String, String> homeroomUpdates = new HashMap<>(); // ClassID -> TeacherID
 
-            // 2. Call Repository Batch Save (INSERT OR REPLACE)
-            repo.getAssignmentRepository().saveAll(batchList);
+            for (Assignment a : pendingChanges.values()) {
+                if (a.getSubjectId().equals(SubjectConstants.HOMEROOM_SUBJECT_ID)) {
+                    homeroomUpdates.put(a.getClassId(), a.getTeacherId());
+                } else {
+                    normalAssignments.add(a);
+                }
+            }
+
+            // 1. Save normal assignments
+            if (!normalAssignments.isEmpty()) {
+                repo.getAssignmentRepository().saveAll(normalAssignments);
+            }
+            
+            // 2. Save Homeroom updates
+            for (Map.Entry<String, String> entry : homeroomUpdates.entrySet()) {
+                String classId = entry.getKey();
+                String teacherId = entry.getValue();
+                
+                Clazz clazz = repo.getClassRepository().getById(classId);
+                if (clazz != null) {
+                    // Check constraint again before saving (just in case)
+                    Clazz existingClass = repo.getClassRepository().findByHomeroomTeacher(teacherId);
+                    if (existingClass != null && !existingClass.getId().equals(classId)) {
+                        // Conflict found during save (rare if UI check works, but possible)
+                        // For now, we overwrite or skip. Let's overwrite to respect user's latest intent.
+                        existingClass.setHomeroomTeacherId(null);
+                        repo.getClassRepository().save(existingClass);
+                    }
+                    
+                    clazz.setHomeroomTeacherId(teacherId);
+                    repo.getClassRepository().save(clazz);
+                    
+                    // Auto-assign special subjects
+                    assignHomeroomDuties(clazz, teacherId);
+                }
+            }
 
             // 3. Clear pending
             pendingChanges.clear();
@@ -406,11 +494,42 @@ public class AssignmentController {
             buildGrid();
             updateCancelButtonVisibility();
 
-            showAlert(Alert.AlertType.INFORMATION, "Success", "Saved " + batchList.size() + " assignments successfully!");
+            showAlert(Alert.AlertType.INFORMATION, "Success", "Saved changes successfully!");
 
         } catch (Exception e) {
             e.printStackTrace();
             showAlert(Alert.AlertType.ERROR, "Error", "Save failed: " + e.getMessage());
+        }
+    }
+    
+    private void assignHomeroomDuties(Clazz clazz, String teacherId) {
+        // Similar logic to TeacherController
+        List<Subject> allSubjects = repo.getSubjectRepository().getAll();
+        String flagSaluteId = null;
+        String classMeetingId = null;
+
+        for (Subject s : allSubjects) {
+            if (s.getId().equals(SubjectConstants.FLAG_SALUTE_ID)) flagSaluteId = s.getId();
+            else if (s.getId().equals(SubjectConstants.CLASS_MEETING_ID)) classMeetingId = s.getId();
+            else {
+                String name = s.getName().toLowerCase();
+                if (name.contains("chào cờ")) flagSaluteId = s.getId();
+                else if (name.contains("sinh hoạt") || name.contains("shcn")) classMeetingId = s.getId();
+            }
+        }
+        
+        if (flagSaluteId != null) saveAssignment(clazz.getId(), teacherId, flagSaluteId);
+        if (classMeetingId != null) saveAssignment(clazz.getId(), teacherId, classMeetingId);
+    }
+    
+    private void saveAssignment(String classId, String teacherId, String subjectId) {
+        Assignment existing = repo.getAssignmentRepository().getByClassAndSubject(classId, subjectId);
+        if (existing != null) {
+            existing.setTeacherId(teacherId);
+            repo.getAssignmentRepository().save(existing);
+        } else {
+            Assignment newAssignment = new Assignment(UUID.randomUUID().toString(), teacherId, subjectId, classId);
+            repo.getAssignmentRepository().save(newAssignment);
         }
     }
 

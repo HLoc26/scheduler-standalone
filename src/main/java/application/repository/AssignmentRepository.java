@@ -38,7 +38,7 @@ public class AssignmentRepository implements IRepository {
     }
 
     public Assignment save(Assignment assignment) {
-        String sql = "INSERT INTO assignments (id, subject_id, class_id, teacher_id) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT OR REPLACE INTO assignments (id, subject_id, class_id, teacher_id) VALUES (?, ?, ?, ?)";
 
         try (
                 Connection conn = databaseHandler.getConnection();
