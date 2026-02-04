@@ -6,12 +6,11 @@ import application.utils.ExcelExporter;
 import javafx.collections.FXCollections;
 import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.Pane;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.FileChooser;
 
 import java.io.File;
@@ -337,27 +336,93 @@ public class ScheduleController {
 
     @FXML
     public void handleExportExcel() {
-        // 1. Ask for Start Date
+        // 1. Ask for Start Date and Subject Labels
         Dialog<LocalDate> dialog = new Dialog<>();
-        dialog.setTitle("Chọn ngày bắt đầu");
-        dialog.setHeaderText("Vui lòng chọn ngày bắt đầu áp dụng thời khóa biểu");
+        dialog.setTitle("Xuất Excel");
+        dialog.setHeaderText("Cấu hình xuất Excel");
 
-        ButtonType loginButtonType = new ButtonType("Tiếp tục", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(loginButtonType, ButtonType.CANCEL);
+        ButtonType exportButtonType = new ButtonType("Xuất File", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(exportButtonType, ButtonType.CANCEL);
 
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
-        grid.setPadding(new javafx.geometry.Insets(20, 150, 10, 10));
+        grid.setPadding(new Insets(20, 20, 10, 10));
 
         DatePicker datePicker = new DatePicker(LocalDate.now());
         grid.add(new Label("Ngày bắt đầu:"), 0, 0);
         grid.add(datePicker, 1, 0);
 
+        // Subject Labels Section
+        Label lblSubjects = new Label("Tên viết tắt môn học:");
+        lblSubjects.setStyle("-fx-font-weight: bold; -fx-padding: 10 0 5 0;");
+        grid.add(lblSubjects, 0, 1, 2, 1);
+
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setPrefHeight(300);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-padding: 5 5 5 5");
+
+        // Use TilePane for 3 columns layout
+        TilePane tilePane = new TilePane();
+        tilePane.setPrefColumns(3);
+        tilePane.setHgap(15);
+        tilePane.setVgap(10);
+        tilePane.setTileAlignment(Pos.TOP_LEFT);
+
+        List<Subject> allSubjects = repo.getSubjectRepository().getAll();
+        Map<String, TextField> labelInputs = new HashMap<>();
+
+        for (Subject s : allSubjects) {
+            HBox cell = new HBox(5);
+            cell.setAlignment(Pos.CENTER_LEFT);
+
+            cell.setPrefWidth(120);
+            cell.setPadding(new Insets(2, 5, 2, 5));
+
+            // Subject name label (original)
+            Label nameLabel = new Label(s.getName());
+            nameLabel.setStyle("-fx-text-fill: #333;");
+            nameLabel.setWrapText(true);
+
+            nameLabel.setMinWidth(130);
+            nameLabel.setMaxWidth(130);
+            nameLabel.setAlignment(Pos.CENTER_RIGHT);
+            nameLabel.setTextAlignment(TextAlignment.RIGHT);
+
+            // Text box for short name
+            TextField labelField = new TextField(s.getLabel());
+            labelField.setPromptText("Tên tắt");
+            labelField.setPrefWidth(75);
+            labelField.setMinWidth(75);
+
+            HBox.setHgrow(labelField, Priority.NEVER);
+
+            labelInputs.put(s.getId(), labelField);
+
+            cell.getChildren().addAll(nameLabel, labelField);
+            tilePane.getChildren().add(cell);
+        }
+        scrollPane.setContent(tilePane);
+        grid.add(scrollPane, 0, 2, 2, 1);
+
+        // Adjust dialog size
+        dialog.getDialogPane().setPrefWidth(500);
         dialog.getDialogPane().setContent(grid);
 
         dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == loginButtonType) {
+            if (dialogButton == exportButtonType) {
+                // Save labels
+                for (Subject s : allSubjects) {
+                    TextField tf = labelInputs.get(s.getId());
+                    if (tf != null) {
+                        String newLabel = tf.getText().trim();
+                        if (!newLabel.isEmpty() && !newLabel.equals(s.getLabel())) {
+                            s.setLabel(newLabel);
+                            repo.getSubjectRepository().update(s);
+                        }
+                    }
+                }
                 return datePicker.getValue();
             }
             return null;

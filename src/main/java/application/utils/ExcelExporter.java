@@ -315,7 +315,7 @@ public class ExcelExporter {
             Cell c = r.getCell(col);
             if (c == null) c = r.createCell(col);
             Subject s = subjectMap.get(item.subjectId());
-            c.setCellValue(s.toString().length() <= 10 ? s.toString() : s.getId());
+            c.setCellValue(s.getLabel());
         }
 
     }
@@ -342,7 +342,7 @@ public class ExcelExporter {
             Clazz clazz = classMap.get(item.classId());
             if (clazz != null) {
                 Subject s = subjectMap.get(item.subjectId());
-                String label = s.toString().length() <= 10 ? s.toString() : s.getId();
+                String label = s.getLabel();
                 c.setCellValue(clazz.getClassName() + " (" + label + ")");
             }
         }
@@ -464,7 +464,7 @@ public class ExcelExporter {
                         Subject s = subjectMap.get(item.subjectId());
                         Teacher t = teacherMap.get(item.teacherId());
                         if (s != null) {
-                            String subjectName = s.toString().length() <= 10 ? s.toString() : s.getId();
+                            String subjectName = s.getLabel();
                             String teacherName = t != null ? t.getName() : "";
                             String cellValue = subjectName;
                             if (!teacherName.isEmpty()) {

@@ -23,7 +23,9 @@ public class SubjectRepository implements IRepository {
             ps.setString(1, id);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
-                return new Subject(rs.getString("id"), rs.getString("name"));
+                String label = rs.getString("label");
+                if (label == null) label = rs.getString("name");
+                return new Subject(rs.getString("id"), rs.getString("name"), label);
             }
             return null;
         } catch (SQLException e) {
@@ -35,13 +37,24 @@ public class SubjectRepository implements IRepository {
     public void initDb() {
         String sql = "CREATE TABLE IF NOT EXISTS subjects ("
                 + "id TEXT PRIMARY KEY,"
-                + "name TEXT NOT NULL"
+                + "name TEXT NOT NULL,"
+                + "label TEXT"
                 + ");";
         try (
                 Connection conn = databaseHandler.getConnection();
                 Statement stmt = conn.createStatement()
         ) {
             stmt.execute(sql);
+            
+            // Migration: Check if label column exists
+            DatabaseMetaData md = conn.getMetaData();
+            try (ResultSet rs = md.getColumns(null, null, "subjects", "label")) {
+                if (!rs.next()) {
+                    stmt.execute("ALTER TABLE subjects ADD COLUMN label TEXT;");
+                    System.out.println("Migration: Added label to subjects table.");
+                }
+            }
+            
             System.out.println("Table subjects created successfully");
         } catch (SQLException e) {
             System.out.println("Error while creating subjects db" + e.getMessage());
@@ -59,10 +72,27 @@ public class SubjectRepository implements IRepository {
         ) {
             ResultSet rs = stmt.executeQuery(sql);
             while (rs.next()) {
-                Subject s = new Subject(rs.getString("id"), rs.getString("name"));
+                String label = rs.getString("label");
+                if (label == null) label = rs.getString("name");
+                Subject s = new Subject(rs.getString("id"), rs.getString("name"), label);
                 subjects.add(s);
             }
             return subjects;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    
+    public boolean update(Subject subject) {
+        String sql = "UPDATE subjects SET name = ?, label = ? WHERE id = ?";
+        try (
+                Connection conn = databaseHandler.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)
+        ) {
+            ps.setString(1, subject.getName());
+            ps.setString(2, subject.getLabel());
+            ps.setString(3, subject.getId());
+            return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
