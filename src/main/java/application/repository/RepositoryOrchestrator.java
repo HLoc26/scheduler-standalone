@@ -13,6 +13,7 @@ public class RepositoryOrchestrator {
     private final TeacherRepository teacherRepository;
     private final ScheduleRepository scheduleRepository;
     private final SessionRepository sessionRepository;
+    private final DepartmentRepository departmentRepository;
 
     public RepositoryOrchestrator(IDatabaseHandler databaseHandler) {
         assignmentRepository = new AssignmentRepository(databaseHandler);
@@ -20,14 +21,16 @@ public class RepositoryOrchestrator {
         curriculumRepository = new CurriculumRepository(databaseHandler);
         gradeRepository = new GradeRepository(databaseHandler);
         subjectRepository = new SubjectRepository(databaseHandler);
+        departmentRepository = new DepartmentRepository(databaseHandler);
         teacherRepository = new TeacherRepository(databaseHandler);
         scheduleRepository = new ScheduleRepository(databaseHandler);
         sessionRepository = new SessionRepository(databaseHandler);
     }
 
     public void initAllDb() {
-        teacherRepository.initDb();
         subjectRepository.initDb();
+        departmentRepository.initDb();
+        teacherRepository.initDb();
 
         sessionRepository.initDb();
         // Initialize session data
@@ -81,5 +84,9 @@ public class RepositoryOrchestrator {
 
     public SessionRepository getSessionRepository() {
         return sessionRepository;
+    }
+
+    public DepartmentRepository getDepartmentRepository() {
+        return departmentRepository;
     }
 }

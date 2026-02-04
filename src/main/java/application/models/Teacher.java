@@ -8,6 +8,7 @@ public class Teacher {
     private String name;
     private String id;
     private boolean[][] busyMatrix; // 6 days x 10 periods
+    private Department department;
 
     public Teacher(String name, String id) {
         this.name = name;
@@ -19,6 +20,13 @@ public class Teacher {
         this.name = name;
         this.id = id;
         this.busyMatrix = busyMatrix;
+    }
+
+    public Teacher(String name, String id, boolean[][] busyMatrix, Department department) {
+        this.name = name;
+        this.id = id;
+        this.busyMatrix = busyMatrix;
+        this.department = department;
     }
 
     public static String serializeBusyMatrix(boolean[][] matrix) {
@@ -76,6 +84,14 @@ public class Teacher {
 
     public void setAssignments(ObservableList<Assignment> newAssignments) {
         this.assignments.setAll(newAssignments);
+    }
+
+    public Department getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(Department department) {
+        this.department = department;
     }
 
     @Override
