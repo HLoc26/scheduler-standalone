@@ -30,6 +30,16 @@ public class TeacherRepository implements IRepository {
                 Statement stmt = conn.createStatement()
         ) {
             stmt.execute(sql);
+            
+            // Migration: Check if department_id column exists
+            DatabaseMetaData md = conn.getMetaData();
+            try (ResultSet rs = md.getColumns(null, null, "teachers", "department_id")) {
+                if (!rs.next()) {
+                    stmt.execute("ALTER TABLE teachers ADD COLUMN department_id TEXT REFERENCES departments(id) ON DELETE SET NULL;");
+                    System.out.println("Migration: Added department_id to teachers table.");
+                }
+            }
+
             System.out.println("Table teachers created successfully");
         } catch (SQLException e) {
             System.out.println("Error while creating teachers db" + e.getMessage());
