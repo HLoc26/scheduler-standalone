@@ -1,5 +1,7 @@
 package application.models;
 
+import java.util.Objects;
+
 public class Subject {
     String id;
     String name;
@@ -44,5 +46,18 @@ public class Subject {
     @Override
     public String toString() {
         return this.name;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Subject subject = (Subject) o;
+        return Objects.equals(id, subject.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 }
