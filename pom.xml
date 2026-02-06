@@ -6,7 +6,7 @@
 
     <groupId>hloc</groupId>
     <artifactId>scheduler.application</artifactId>
-    <version>0.5.0</version>
+    <version>0.5.1</version>
 
     <properties>
         <maven.compiler.source>25</maven.compiler.source>

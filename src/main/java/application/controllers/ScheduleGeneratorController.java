@@ -95,19 +95,19 @@ public class ScheduleGeneratorController {
         addChecklistItem("Kiểm tra phân bổ tiết dạy (2-4 tiết/buổi)");
 
         // 2. Kiểm tra tổng tải mỗi ngày (Daily Limit Check)
-        addChecklistItem("Xác thực giới hạn 7 tiết mỗi ngày");
+        addChecklistItem("Giới hạn 7 tiết mỗi ngày");
 
         // 3. Kiểm tra chuyển buổi (Transition Check)
-        addChecklistItem("Rà soát các tiết cuối buổi sáng");
+        addChecklistItem("Kiểm tra các tiết cuối buổi sáng");
 
         // 4. Xếp ưu tiên (Priority Scheduling)
-        addChecklistItem("Tối ưu hóa lịch GVCN cho Chào cờ & SHL)");
+        addChecklistItem("Tối ưu hóa lịch GVCN cho Chào cờ & SHL");
 
         // 5. Tối ưu hóa (Optimization)
         addChecklistItem("Tinh gọn lịch dạy");
 
         // 6. Kiểm tra ràng buộc cứng (Hard Constraint Check)
-        addChecklistItem("Đối chiếu giờ bận của giáo viên");
+        addChecklistItem("Kiểm tra giờ bận của giáo viên");
 
         // 7. Kiểm tra tiết đôi (Double Period Check)
         addChecklistItem("Xác nhận điều kiện xếp tiết đôi");
