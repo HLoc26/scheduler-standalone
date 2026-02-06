@@ -2,6 +2,7 @@ package application.controllers;
 
 import application.models.Assignment;
 import application.models.Clazz;
+import application.models.Department;
 import application.models.Subject;
 import application.models.Teacher;
 import application.repository.RepositoryOrchestrator;
@@ -13,9 +14,11 @@ import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.util.Callback;
 import javafx.util.StringConverter;
 import scheduler.common.constants.SubjectConstants;
 
+import java.text.Collator;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -97,18 +100,68 @@ public class AssignmentController {
      * Configures the Quick Mode Toolbar (ComboBox for Teachers).
      */
     private void setupQuickModeControls() {
+        // Group teachers by department for display
+        Collator collator = Collator.getInstance(new Locale("vi", "VN"));
+        teachers.sort(Comparator.comparing((Teacher t) -> {
+            if (t.getDepartment() != null) return t.getDepartment().getName();
+            return "zzzz"; // Put "No Department" at the end
+        }, collator).thenComparing(Teacher::getName, collator));
+        
         cbQuickTeacher.setItems(FXCollections.observableArrayList(teachers));
 
-        // Display Teacher Name nicely
-        cbQuickTeacher.setConverter(new StringConverter<>() {
+        // Use a custom cell factory to add separators/headers
+        Callback<ListView<Teacher>, ListCell<Teacher>> cellFactory = lv -> new ListCell<Teacher>() {
             @Override
-            public String toString(Teacher t) {
-                return (t == null) ? "" : t.getName();
+            protected void updateItem(Teacher item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    setText(item.getName());
+                    
+                    // Check if this is the first item of a new group
+                    int index = getIndex();
+                    boolean isFirstInGroup = false;
+                    if (index == 0) {
+                        isFirstInGroup = true;
+                    } else if (index > 0 && index < getListView().getItems().size()) {
+                        Teacher prevItem = getListView().getItems().get(index - 1);
+                        String currentDept = (item.getDepartment() != null) ? item.getDepartment().getName() : "Chưa phân tổ";
+                        String prevDept = (prevItem.getDepartment() != null) ? prevItem.getDepartment().getName() : "Chưa phân tổ";
+                        if (!currentDept.equals(prevDept)) {
+                            isFirstInGroup = true;
+                        }
+                    }
+                    
+                    if (isFirstInGroup) {
+                        String deptName = (item.getDepartment() != null) ? item.getDepartment().getName() : "Chưa phân tổ";
+                        Label header = new Label(deptName);
+                        header.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50; -fx-padding: 5 0 2 0; -fx-background-color: #ecf0f1;");
+                        header.setMaxWidth(Double.MAX_VALUE);
+                        
+                        VBox container = new VBox(header, new Label("  " + item.getName()));
+                        setGraphic(container);
+                        setText(null);
+                    } else {
+                        setGraphic(null);
+                        setText("  " + item.getName()); // Indent slightly
+                    }
+                }
             }
-
+        };
+        
+        cbQuickTeacher.setCellFactory(cellFactory);
+        
+        cbQuickTeacher.setButtonCell(new ListCell<Teacher>() {
             @Override
-            public Teacher fromString(String string) {
-                return null; // Not needed
+            protected void updateItem(Teacher item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item.getName());
+                }
             }
         });
 
@@ -401,7 +454,19 @@ public class AssignmentController {
      * Shows a dialog to select a teacher.
      */
     private void showSelectTeacherDialog(VBox cell, Label label, Subject s, Clazz c, Teacher current) {
-        ChoiceDialog<Teacher> dialog = new ChoiceDialog<>(current, teachers);
+        // Filter teachers if subject is qualified for a department
+        // But for now, we just show all teachers, maybe sorted by department
+        
+        // We can use a custom dialog with a TreeView or grouped ListView, but ChoiceDialog is simple.
+        // Let's sort the list by department first.
+        Collator collator = Collator.getInstance(new Locale("vi", "VN"));
+        List<Teacher> sortedTeachers = new ArrayList<>(teachers);
+        sortedTeachers.sort(Comparator.comparing((Teacher t) -> {
+            if (t.getDepartment() != null) return t.getDepartment().getName();
+            return "zzzz";
+        }, collator).thenComparing(Teacher::getName, collator));
+        
+        ChoiceDialog<Teacher> dialog = new ChoiceDialog<>(current, sortedTeachers);
         dialog.setTitle("Assign Teacher");
         dialog.setHeaderText("Subject: " + s.getName() + " - Class: " + c.getClassName());
         dialog.setContentText("Select Teacher:");
@@ -409,15 +474,58 @@ public class AssignmentController {
         // Fix display in ComboBox inside Dialog
         ComboBox<Teacher> combo = (ComboBox<Teacher>) dialog.getDialogPane().lookup(".combo-box");
         if (combo != null) {
-            combo.setConverter(new StringConverter<>() {
+            // Use same cell factory logic as quick mode
+            Callback<ListView<Teacher>, ListCell<Teacher>> cellFactory = lv -> new ListCell<Teacher>() {
                 @Override
-                public String toString(Teacher t) {
-                    return t == null ? "" : t.getName();
+                protected void updateItem(Teacher item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setGraphic(null);
+                    } else {
+                        setText(item.getName());
+                        
+                        // Check if this is the first item of a new group
+                        int index = getIndex();
+                        boolean isFirstInGroup = false;
+                        if (index == 0) {
+                            isFirstInGroup = true;
+                        } else if (index > 0 && index < getListView().getItems().size()) {
+                            Teacher prevItem = getListView().getItems().get(index - 1);
+                            String currentDept = (item.getDepartment() != null) ? item.getDepartment().getName() : "Chưa phân tổ";
+                            String prevDept = (prevItem.getDepartment() != null) ? prevItem.getDepartment().getName() : "Chưa phân tổ";
+                            if (!currentDept.equals(prevDept)) {
+                                isFirstInGroup = true;
+                            }
+                        }
+                        
+                        if (isFirstInGroup) {
+                            String deptName = (item.getDepartment() != null) ? item.getDepartment().getName() : "Chưa phân tổ";
+                            Label header = new Label(deptName);
+                            header.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50; -fx-padding: 5 0 2 0; -fx-background-color: #ecf0f1;");
+                            header.setMaxWidth(Double.MAX_VALUE);
+                            
+                            VBox container = new VBox(header, new Label("  " + item.getName()));
+                            setGraphic(container);
+                            setText(null);
+                        } else {
+                            setGraphic(null);
+                            setText("  " + item.getName()); // Indent slightly
+                        }
+                    }
                 }
-
+            };
+            
+            combo.setCellFactory(cellFactory);
+            combo.setButtonCell(new ListCell<Teacher>() {
                 @Override
-                public Teacher fromString(String s) {
-                    return null; // Not needed
+                protected void updateItem(Teacher item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                    } else {
+                        setText(item.getName());
+                    }
                 }
             });
         }
