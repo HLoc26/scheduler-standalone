@@ -45,7 +45,7 @@ public class SubjectRepository implements IRepository {
                 Statement stmt = conn.createStatement()
         ) {
             stmt.execute(sql);
-            
+
             // Migration: Check if label column exists
             DatabaseMetaData md = conn.getMetaData();
             try (ResultSet rs = md.getColumns(null, null, "subjects", "label")) {
@@ -54,7 +54,7 @@ public class SubjectRepository implements IRepository {
                     System.out.println("Migration: Added label to subjects table.");
                 }
             }
-            
+
             System.out.println("Table subjects created successfully");
         } catch (SQLException e) {
             System.out.println("Error while creating subjects db" + e.getMessage());
@@ -82,7 +82,7 @@ public class SubjectRepository implements IRepository {
             throw new RuntimeException(e);
         }
     }
-    
+
     public boolean update(Subject subject) {
         String sql = "UPDATE subjects SET name = ?, label = ? WHERE id = ?";
         try (

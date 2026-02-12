@@ -21,7 +21,7 @@ public class DepartmentRepository implements IRepository {
                 + "id TEXT PRIMARY KEY,"
                 + "name TEXT NOT NULL"
                 + ");";
-        
+
         String sqlDepartmentSubjects = "CREATE TABLE IF NOT EXISTS department_subjects ("
                 + "department_id TEXT,"
                 + "subject_id TEXT,"
@@ -89,7 +89,7 @@ public class DepartmentRepository implements IRepository {
         ) {
             stmt.setString(1, department.getId());
             stmt.setString(2, department.getName());
-            
+
             int rows = stmt.executeUpdate();
             if (rows == 1) {
                 updateDepartmentSubjects(department);
@@ -136,8 +136,8 @@ public class DepartmentRepository implements IRepository {
 
     private List<Subject> getSubjectsForDepartment(String departmentId) {
         String sql = "SELECT s.id, s.name, s.label FROM subjects s " +
-                     "JOIN department_subjects ds ON s.id = ds.subject_id " +
-                     "WHERE ds.department_id = ?";
+                "JOIN department_subjects ds ON s.id = ds.subject_id " +
+                "WHERE ds.department_id = ?";
         List<Subject> subjects = new ArrayList<>();
         try (
                 Connection conn = databaseHandler.getConnection();
@@ -161,7 +161,7 @@ public class DepartmentRepository implements IRepository {
     private void updateDepartmentSubjects(Department department) {
         String deleteSql = "DELETE FROM department_subjects WHERE department_id = ?";
         String insertSql = "INSERT INTO department_subjects (department_id, subject_id) VALUES (?, ?)";
-        
+
         try (Connection conn = databaseHandler.getConnection()) {
             try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
                 deleteStmt.setString(1, department.getId());

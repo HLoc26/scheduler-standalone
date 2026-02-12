@@ -10,7 +10,6 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class ExcelExporter {
 
@@ -104,7 +103,7 @@ public class ExcelExporter {
                 Sheet gradeSheet = workbook.createSheet(grade.getName());
                 fillGradeSheet(gradeSheet, grade);
             }
-            
+
             // Sheet for All Departments
             Sheet deptSheet = workbook.createSheet("TKB Tổ chuyên môn");
             fillAllDepartmentsSheet(deptSheet);
@@ -138,7 +137,7 @@ public class ExcelExporter {
             List<ScheduleItem> items = repo.getScheduleRepository().getByTeacherId(t.getId());
             teacherScheduleMap.put(t.getId(), items);
         });
-        
+
         List<Department> departments = repo.getDepartmentRepository().getAll();
         departments.forEach(d -> departmentMap.put(d.getId(), d));
     }
@@ -204,7 +203,7 @@ public class ExcelExporter {
         evenDaySeparatorStyle = workbook.createCellStyle();
         evenDaySeparatorStyle.cloneStyleFrom(evenDayStyle);
         evenDaySeparatorStyle.setBorderBottom(BorderStyle.MEDIUM);
-        
+
         // Break Style (Light Gray)
         breakStyle = workbook.createCellStyle();
         breakStyle.cloneStyleFrom(tableBodyStyle);
@@ -498,7 +497,7 @@ public class ExcelExporter {
             }
         }
     }
-    
+
     private void fillAllDepartmentsSheet(Sheet sheet) {
         // Set fixed column widths for first 3 columns
         sheet.setColumnWidth(0, 10 * 256); // Day
@@ -589,12 +588,12 @@ public class ExcelExporter {
 
             sheet.addMergedRegion(new CellRangeAddress(currentGridRow, currentGridRow, 1, totalCols - 1));
 
-            for(int c=1; c<totalCols; c++) {
+            for (int c = 1; c < totalCols; c++) {
                 Cell cCell = breakRow.getCell(c);
-                if(cCell==null) cCell = breakRow.createCell(c);
+                if (cCell == null) cCell = breakRow.createCell(c);
                 cCell.setCellStyle(breakStyle);
             }
-            
+
             currentGridRow++;
 
             // Afternoon 1-5
@@ -607,10 +606,10 @@ public class ExcelExporter {
             // Merges
             // Day: Col 0, from dayStartRow to currentGridRow - 1
             sheet.addMergedRegion(new CellRangeAddress(dayStartRow, currentGridRow - 1, 0, 0));
-            
+
             // Session Morning: Col 1, dayStartRow to dayStartRow + 4
             sheet.addMergedRegion(new CellRangeAddress(dayStartRow, dayStartRow + 4, 1, 1));
-            
+
             // Session Afternoon: Col 1, dayStartRow + 6 to currentGridRow - 1
             sheet.addMergedRegion(new CellRangeAddress(dayStartRow + 6, currentGridRow - 1, 1, 1));
         }
@@ -651,7 +650,7 @@ public class ExcelExporter {
                 if (row != null) {
                     Cell cell = row.getCell(colIdx);
                     if (cell == null) cell = row.createCell(colIdx);
-                    
+
                     Clazz c = classMap.get(item.classId());
                     Subject s = subjectMap.get(item.subjectId());
                     if (c != null && s != null) {
@@ -663,7 +662,7 @@ public class ExcelExporter {
 
         return currentGridRow;
     }
-    
+
     private void createRowCells(Row row, EWeekDay day, String session, int period, int totalCols, boolean isEvenDay, boolean isAfternoon) {
         CellStyle currentStyle;
         if (isEvenDay) {
@@ -671,26 +670,26 @@ public class ExcelExporter {
         } else {
             currentStyle = (period == 5) ? oddDaySeparatorStyle : oddDayStyle;
         }
-        
+
         // Day
         Cell dayCell = row.createCell(0);
         if (period == 1 && !isAfternoon) {
             dayCell.setCellValue(getDayName(day));
         }
         dayCell.setCellStyle(currentStyle);
-        
+
         // Session
         Cell sessionCell = row.createCell(1);
         if (period == 1) {
             sessionCell.setCellValue(session);
         }
         sessionCell.setCellStyle(currentStyle);
-        
+
         // Period
         Cell periodCell = row.createCell(2);
         periodCell.setCellValue(period);
         periodCell.setCellStyle(currentStyle);
-        
+
         // Empty cells
         for (int i = 3; i < totalCols; i++) {
             Cell cell = row.createCell(i);

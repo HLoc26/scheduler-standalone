@@ -2,7 +2,6 @@ package application.controllers;
 
 import application.models.Assignment;
 import application.models.Clazz;
-import application.models.Department;
 import application.models.Subject;
 import application.models.Teacher;
 import application.repository.RepositoryOrchestrator;
@@ -15,7 +14,6 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Callback;
-import javafx.util.StringConverter;
 import scheduler.common.constants.SubjectConstants;
 
 import java.text.Collator;
@@ -106,7 +104,7 @@ public class AssignmentController {
             if (t.getDepartment() != null) return t.getDepartment().getName();
             return "zzzz"; // Put "No Department" at the end
         }, collator).thenComparing(Teacher::getName, collator));
-        
+
         cbQuickTeacher.setItems(FXCollections.observableArrayList(teachers));
 
         // Use a custom cell factory to add separators/headers
@@ -119,7 +117,7 @@ public class AssignmentController {
                     setGraphic(null);
                 } else {
                     setText(item.getName());
-                    
+
                     // Check if this is the first item of a new group
                     int index = getIndex();
                     boolean isFirstInGroup = false;
@@ -133,13 +131,13 @@ public class AssignmentController {
                             isFirstInGroup = true;
                         }
                     }
-                    
+
                     if (isFirstInGroup) {
                         String deptName = (item.getDepartment() != null) ? item.getDepartment().getName() : "Chưa phân tổ";
                         Label header = new Label(deptName);
                         header.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50; -fx-padding: 5 0 2 0; -fx-background-color: #ecf0f1;");
                         header.setMaxWidth(Double.MAX_VALUE);
-                        
+
                         VBox container = new VBox(header, new Label("  " + item.getName()));
                         setGraphic(container);
                         setText(null);
@@ -150,9 +148,9 @@ public class AssignmentController {
                 }
             }
         };
-        
+
         cbQuickTeacher.setCellFactory(cellFactory);
-        
+
         cbQuickTeacher.setButtonCell(new ListCell<Teacher>() {
             @Override
             protected void updateItem(Teacher item, boolean empty) {
@@ -456,7 +454,7 @@ public class AssignmentController {
     private void showSelectTeacherDialog(VBox cell, Label label, Subject s, Clazz c, Teacher current) {
         // Filter teachers if subject is qualified for a department
         // But for now, we just show all teachers, maybe sorted by department
-        
+
         // We can use a custom dialog with a TreeView or grouped ListView, but ChoiceDialog is simple.
         // Let's sort the list by department first.
         Collator collator = Collator.getInstance(new Locale("vi", "VN"));
@@ -465,7 +463,7 @@ public class AssignmentController {
             if (t.getDepartment() != null) return t.getDepartment().getName();
             return "zzzz";
         }, collator).thenComparing(Teacher::getName, collator));
-        
+
         ChoiceDialog<Teacher> dialog = new ChoiceDialog<>(current, sortedTeachers);
         dialog.setTitle("Assign Teacher");
         dialog.setHeaderText("Subject: " + s.getName() + " - Class: " + c.getClassName());
@@ -484,7 +482,7 @@ public class AssignmentController {
                         setGraphic(null);
                     } else {
                         setText(item.getName());
-                        
+
                         // Check if this is the first item of a new group
                         int index = getIndex();
                         boolean isFirstInGroup = false;
@@ -498,13 +496,13 @@ public class AssignmentController {
                                 isFirstInGroup = true;
                             }
                         }
-                        
+
                         if (isFirstInGroup) {
                             String deptName = (item.getDepartment() != null) ? item.getDepartment().getName() : "Chưa phân tổ";
                             Label header = new Label(deptName);
                             header.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50; -fx-padding: 5 0 2 0; -fx-background-color: #ecf0f1;");
                             header.setMaxWidth(Double.MAX_VALUE);
-                            
+
                             VBox container = new VBox(header, new Label("  " + item.getName()));
                             setGraphic(container);
                             setText(null);
@@ -515,7 +513,7 @@ public class AssignmentController {
                     }
                 }
             };
-            
+
             combo.setCellFactory(cellFactory);
             combo.setButtonCell(new ListCell<Teacher>() {
                 @Override

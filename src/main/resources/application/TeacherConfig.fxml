@@ -59,8 +59,10 @@
 
                         <Label text="Tổ chuyên môn:" GridPane.rowIndex="2" style="-fx-text-fill: #2c3e50;"/>
                         <HBox spacing="10.0" GridPane.rowIndex="2" GridPane.columnIndex="1">
-                            <ComboBox fx:id="departmentComboBox" promptText="Chọn tổ chuyên môn..." maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"/>
-                            <Button fx:id="btnManageDepartments" text="..." style="-fx-background-color: #95a5a6; -fx-text-fill: white;">
+                            <ComboBox fx:id="departmentComboBox" promptText="Chọn tổ chuyên môn..."
+                                      maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS"/>
+                            <Button fx:id="btnManageDepartments" text="..."
+                                    style="-fx-background-color: #95a5a6; -fx-text-fill: white;">
                                 <tooltip>
                                     <Tooltip text="Quản lý Tổ chuyên môn"/>
                                 </tooltip>
@@ -139,7 +141,8 @@
                         <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"
                                text="3. Thời gian bận"/>
                         <Region HBox.hgrow="ALWAYS"/>
-                        <Label fx:id="lblRemainingCapacity" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #e67e22;"
+                        <Label fx:id="lblRemainingCapacity"
+                               style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #e67e22;"
                                text="Số tiết hợp lệ: Sáng: 0, Chiều: 0"/>
                     </HBox>
                     <StackPane fx:id="timeGridContainer" alignment="CENTER_LEFT"/>

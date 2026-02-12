@@ -17,11 +17,11 @@ public class TimeGridSelector extends VBox {
     private final ToggleButton[][] cells;
     // UI String: Days of the week (Monday to Saturday)
     private final String[] DAYS = {"T2", "T3", "T4", "T5", "T6", "T7"};
+    private final String[][] specialMessages;
+    private final String[][] forcedBusyMessages;
     private int remainPeriods;
     private boolean isReadOnly = false;
     private Label title;
-    private final String[][] specialMessages;
-    private final String[][] forcedBusyMessages;
     private boolean suppressAlerts = false;
     private Runnable onGridChanged;
 
@@ -138,7 +138,7 @@ public class TimeGridSelector extends VBox {
                         remainPeriods++;
                     }
                     updateButtonStyle(btn);
-                    
+
                     if (onGridChanged != null) {
                         onGridChanged.run();
                     }
@@ -199,7 +199,7 @@ public class TimeGridSelector extends VBox {
             if (newState && specialMessages[i][periodIndex] != null) continue;
             // Skip forced busy cells if trying to unselect
             if (!newState && forcedBusyMessages[i][periodIndex] != null) continue;
-            
+
             cells[i][periodIndex].setSelected(newState);
         }
     }
@@ -221,7 +221,7 @@ public class TimeGridSelector extends VBox {
             if (newState && specialMessages[dayIndex][startPeriod + i] != null) continue;
             // Skip forced busy cells if trying to unselect
             if (!newState && forcedBusyMessages[dayIndex][startPeriod + i] != null) continue;
-            
+
             cells[dayIndex][startPeriod + i].setSelected(newState);
         }
     }
@@ -334,7 +334,7 @@ public class TimeGridSelector extends VBox {
                     suppressAlerts = true;
                     cells[day][period].setSelected(false);
                     suppressAlerts = oldSuppress;
-                    
+
                     // We don't disable the button so it can be clicked to show the alert
                     cells[day][period].setDisable(false);
                 }
@@ -363,7 +363,7 @@ public class TimeGridSelector extends VBox {
     public int getRemainPeriods() {
         return remainPeriods;
     }
-    
+
     public void setOnGridChanged(Runnable onGridChanged) {
         this.onGridChanged = onGridChanged;
     }

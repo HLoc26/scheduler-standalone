@@ -1,7 +1,6 @@
 package application.repository;
 
 import application.models.Department;
-import application.models.Subject;
 import application.models.Teacher;
 
 import java.sql.*;
@@ -30,7 +29,7 @@ public class TeacherRepository implements IRepository {
                 Statement stmt = conn.createStatement()
         ) {
             stmt.execute(sql);
-            
+
             // Migration: Check if department_id column exists
             DatabaseMetaData md = conn.getMetaData();
             try (ResultSet rs = md.getColumns(null, null, "teachers", "department_id")) {
@@ -48,7 +47,7 @@ public class TeacherRepository implements IRepository {
 
     public List<Teacher> getAll() {
         String sql = "SELECT t.*, d.name as dept_name FROM teachers t " +
-                     "LEFT JOIN departments d ON t.department_id = d.id";
+                "LEFT JOIN departments d ON t.department_id = d.id";
         List<Teacher> teacherList = new ArrayList<>();
         try (
                 Connection conn = databaseHandler.getConnection();
@@ -59,7 +58,7 @@ public class TeacherRepository implements IRepository {
                 while (rs.next()) {
                     Teacher t = new Teacher(rs.getString("name"), rs.getString("id"));
                     t.setBusyMatrix(Teacher.deserializeBusyMatrix(rs.getString("busy_matrix")));
-                    
+
                     String departmentId = rs.getString("department_id");
                     if (departmentId != null) {
                         String deptName = rs.getString("dept_name");
@@ -134,8 +133,8 @@ public class TeacherRepository implements IRepository {
 
     public Teacher getById(String id) {
         String sql = "SELECT t.*, d.name as dept_name FROM teachers t " +
-                     "LEFT JOIN departments d ON t.department_id = d.id " +
-                     "WHERE t.id = ?";
+                "LEFT JOIN departments d ON t.department_id = d.id " +
+                "WHERE t.id = ?";
         try (
                 Connection conn = databaseHandler.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)

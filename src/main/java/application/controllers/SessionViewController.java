@@ -163,7 +163,7 @@ public class SessionViewController {
                 anyUpdated = true;
             }
         }
-        
+
         if (anyUpdated) {
             System.out.println("Updated teachers' busy matrices based on session config changes.");
         }
