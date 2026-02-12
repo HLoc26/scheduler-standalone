@@ -21,6 +21,9 @@ public class TimeGridSelector extends VBox {
     private boolean isReadOnly = false;
     private Label title;
     private final String[][] specialMessages;
+    private final String[][] forcedBusyMessages;
+    private boolean suppressAlerts = false;
+    private Runnable onGridChanged;
 
 
     public TimeGridSelector() {
@@ -31,6 +34,7 @@ public class TimeGridSelector extends VBox {
         this.totalPeriods = 10;
         this.cells = new ToggleButton[6][totalPeriods];
         this.specialMessages = new String[6][totalPeriods];
+        this.forcedBusyMessages = new String[6][totalPeriods];
         this.setSpacing(10);
         this.remainPeriods = DAYS.length * this.totalPeriods;
 
@@ -100,10 +104,29 @@ public class TimeGridSelector extends VBox {
 
                 int finalDay = day;
                 btn.selectedProperty().addListener((obs, oldVal, newVal) -> {
+                    if (suppressAlerts) {
+                        if (newVal) {
+                            btn.setText("X");
+                            remainPeriods--;
+                        } else {
+                            btn.setText("");
+                            remainPeriods++;
+                        }
+                        updateButtonStyle(btn);
+                        return;
+                    }
+
                     if (specialMessages[finalDay][periodIndex] != null && newVal) {
-                        // If trying to select a special cell, revert and show alert
+                        // If trying to select a special cell (must be available), revert and show alert
                         btn.setSelected(false);
                         showAlert(Alert.AlertType.WARNING, "Không thể chọn", specialMessages[finalDay][periodIndex]);
+                        return;
+                    }
+
+                    if (forcedBusyMessages[finalDay][periodIndex] != null && !newVal) {
+                        // If trying to unselect a forced busy cell, revert and show alert
+                        btn.setSelected(true);
+                        showAlert(Alert.AlertType.WARNING, "Không thể bỏ chọn", forcedBusyMessages[finalDay][periodIndex]);
                         return;
                     }
 
@@ -115,6 +138,10 @@ public class TimeGridSelector extends VBox {
                         remainPeriods++;
                     }
                     updateButtonStyle(btn);
+                    
+                    if (onGridChanged != null) {
+                        onGridChanged.run();
+                    }
                 });
 
                 // Store reference
@@ -170,6 +197,9 @@ public class TimeGridSelector extends VBox {
         for (int i = 0; i < DAYS.length; i++) {
             // Skip special cells if trying to select
             if (newState && specialMessages[i][periodIndex] != null) continue;
+            // Skip forced busy cells if trying to unselect
+            if (!newState && forcedBusyMessages[i][periodIndex] != null) continue;
+            
             cells[i][periodIndex].setSelected(newState);
         }
     }
@@ -189,6 +219,9 @@ public class TimeGridSelector extends VBox {
         for (int i = 0; i < PERIOD_PER_SESSION; i++) {
             // Skip special cells if trying to select
             if (newState && specialMessages[dayIndex][startPeriod + i] != null) continue;
+            // Skip forced busy cells if trying to unselect
+            if (!newState && forcedBusyMessages[dayIndex][startPeriod + i] != null) continue;
+            
             cells[dayIndex][startPeriod + i].setSelected(newState);
         }
     }
@@ -231,6 +264,8 @@ public class TimeGridSelector extends VBox {
         // Reset to default state first
         clear();
 
+        boolean oldSuppress = suppressAlerts;
+        suppressAlerts = true;
         for (int d = 0; d < DAYS.length; d++) {
             for (int t = 0; t < totalPeriods; t++) {
                 // Check bounds to prevent errors if the loaded data has different dimensions
@@ -241,12 +276,15 @@ public class TimeGridSelector extends VBox {
                 }
             }
         }
+        suppressAlerts = oldSuppress;
     }
 
     /**
      * Resets all cells to available (unselected).
      */
     public void clear() {
+        boolean oldSuppress = suppressAlerts;
+        suppressAlerts = true;
         for (int d = 0; d < DAYS.length; d++) {
             for (int t = 0; t < totalPeriods; t++) {
                 if (cells[d][t] != null) {
@@ -254,6 +292,7 @@ public class TimeGridSelector extends VBox {
                 }
             }
         }
+        suppressAlerts = oldSuppress;
     }
 
     public void setReadOnly(boolean readOnly) {
@@ -291,7 +330,29 @@ public class TimeGridSelector extends VBox {
             // But we don't disable it, we just intercept the click
             if (message != null) {
                 if (cells[day][period] != null) {
+                    boolean oldSuppress = suppressAlerts;
+                    suppressAlerts = true;
                     cells[day][period].setSelected(false);
+                    suppressAlerts = oldSuppress;
+                    
+                    // We don't disable the button so it can be clicked to show the alert
+                    cells[day][period].setDisable(false);
+                }
+            }
+        }
+    }
+
+    public void setForcedBusyCell(int day, int period, String message) {
+        if (day >= 0 && day < DAYS.length && period >= 0 && period < totalPeriods) {
+            forcedBusyMessages[day][period] = message;
+            // If setting a forced busy message, ensure the cell is selected (busy)
+            if (message != null) {
+                if (cells[day][period] != null) {
+                    boolean oldSuppress = suppressAlerts;
+                    suppressAlerts = true;
+                    cells[day][period].setSelected(true);
+                    suppressAlerts = oldSuppress;
+
                     // We don't disable the button so it can be clicked to show the alert
                     cells[day][period].setDisable(false);
                 }
@@ -301,5 +362,9 @@ public class TimeGridSelector extends VBox {
 
     public int getRemainPeriods() {
         return remainPeriods;
+    }
+    
+    public void setOnGridChanged(Runnable onGridChanged) {
+        this.onGridChanged = onGridChanged;
     }
 }

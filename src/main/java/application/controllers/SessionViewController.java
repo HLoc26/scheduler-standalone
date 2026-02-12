@@ -3,6 +3,7 @@ package application.controllers;
 import application.models.ESession;
 import application.models.Grade;
 import application.models.Session;
+import application.models.Teacher;
 import application.repository.RepositoryOrchestrator;
 import application.views.TimeGridSelector;
 import javafx.fxml.FXML;
@@ -96,6 +97,12 @@ public class SessionViewController {
             boolean[][] morningConfig = morningGridSelector.getBusyMatrix();
             boolean[][] afternoonConfig = afternoonGridSelector.getBusyMatrix();
 
+            // Fetch old session data to compare
+            Session oldMorningSession = repo.getSessionRepository().getByName(ESession.MORNING);
+            Session oldAfternoonSession = repo.getSessionRepository().getByName(ESession.AFTERNOON);
+            boolean[][] oldMorningConfig = oldMorningSession != null ? oldMorningSession.getBusyMatrix() : new boolean[6][10];
+            boolean[][] oldAfternoonConfig = oldAfternoonSession != null ? oldAfternoonSession.getBusyMatrix() : new boolean[6][10];
+
             Session morning = new Session(ESession.MORNING, morningConfig);
             Session afternoon = new Session(ESession.AFTERNOON, afternoonConfig);
 
@@ -103,7 +110,11 @@ public class SessionViewController {
             repo.getSessionRepository().save(morning);
             repo.getSessionRepository().save(afternoon);
 
-            showAlert(Alert.AlertType.INFORMATION, "Thành công", "Đã lưu cấu hình buổi học!");
+            // 4. Update Teachers
+            updateTeachersBusyMatrix(oldMorningConfig, morningConfig, 0, 5);
+            updateTeachersBusyMatrix(oldAfternoonConfig, afternoonConfig, 5, 10);
+
+            showAlert(Alert.AlertType.INFORMATION, "Thành công", "Đã lưu cấu hình buổi học và cập nhật lịch nghỉ của giáo viên!");
 
         } catch (RuntimeException e) {
             // Validation errors
@@ -112,6 +123,49 @@ public class SessionViewController {
             // Unexpected errors
             e.printStackTrace();
             showAlert(Alert.AlertType.ERROR, "Lỗi Hệ Thống", "Không thể lưu cấu hình: " + e.getMessage());
+        }
+    }
+
+    private void updateTeachersBusyMatrix(boolean[][] oldConfig, boolean[][] newConfig, int startPeriod, int endPeriod) {
+        List<Teacher> teachers = repo.getTeacherRepository().getAll();
+        boolean anyUpdated = false;
+
+        for (Teacher teacher : teachers) {
+            boolean[][] teacherMatrix = teacher.getBusyMatrix();
+            boolean updated = false;
+
+            for (int d = 0; d < 6; d++) {
+                for (int p = startPeriod; p < endPeriod; p++) {
+                    boolean wasBusy = oldConfig[d][p];
+                    boolean isBusy = newConfig[d][p];
+
+                    if (wasBusy != isBusy) {
+                        if (isBusy) {
+                            // Case 1: Mark as busy
+                            if (!teacherMatrix[d][p]) {
+                                teacherMatrix[d][p] = true;
+                                updated = true;
+                            }
+                        } else {
+                            // Case 2: Un-mark as busy
+                            if (teacherMatrix[d][p]) {
+                                teacherMatrix[d][p] = false;
+                                updated = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (updated) {
+                teacher.setBusyMatrix(teacherMatrix);
+                repo.getTeacherRepository().update(teacher);
+                anyUpdated = true;
+            }
+        }
+        
+        if (anyUpdated) {
+            System.out.println("Updated teachers' busy matrices based on session config changes.");
         }
     }
 
