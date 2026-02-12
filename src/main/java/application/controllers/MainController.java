@@ -8,6 +8,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
@@ -15,13 +16,17 @@ import javafx.stage.Stage;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Optional;
+import java.util.Properties;
 
 public class MainController {
 
     private final RepositoryOrchestrator repo;
     @FXML
     public Button btnSessions;
+    @FXML
+    public Label txtVersion;
     @FXML
     private StackPane contentArea;
     @FXML
@@ -41,8 +46,24 @@ public class MainController {
     }
 
     public void initialize() {
+        String version = getVersion();
+        txtVersion.setText("Version " + version);
         // Default to loading the teacher screen first
         showTeacherConfig();
+    }
+
+    private String getVersion() {
+        String version = "Unknown";
+        try (InputStream input = getClass().getClassLoader().getResourceAsStream("app.properties")) {
+            Properties prop = new Properties();
+            if (input != null) {
+                prop.load(input);
+                version = prop.getProperty("application.version");
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return version;
     }
 
     @FXML

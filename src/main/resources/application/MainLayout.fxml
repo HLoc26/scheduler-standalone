@@ -101,7 +101,7 @@
                                 styleClass="nav-icon"/>
                     </graphic>
                 </Button>
-                <Label text="Version 1.0.0" textFill="#7f8c8d">
+                <Label fx:id="txtVersion" text="Version 1.0.0" textFill="#7f8c8d">
                     <font>
                         <Font size="10.0"/>
                     </font>

@@ -79,6 +79,11 @@ public class TeacherController {
     private ComboBox<Department> departmentComboBox;
     @FXML
     private Button btnManageDepartments;
+    // --- Time grid ---
+    @FXML
+    private Label lblRemainingCapacity;
+    @FXML
+    private Button btnWarning;
 
     // --- Data & Logic ---
     private TimeGridSelector timeGridSelector;
@@ -94,12 +99,25 @@ public class TeacherController {
         setupButtons();
         setupHomeroomControls();
         setupDepartmentControls();
+        setupWarningButton();
 
         loadData();
         Platform.runLater(() -> root.setDividerPosition(0, 0.2));
 
         // Check for implicit homeroom assignments on startup
         Platform.runLater(this::checkAllImplicitHomeroomAssignments);
+    }
+
+    private void setupWarningButton() {
+        btnWarning = new Button("⚠");
+        btnWarning.setStyle("-fx-background-color: transparent; -fx-text-fill: red; -fx-font-size: 16px; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnWarning.setVisible(false);
+        
+        // Add to the HBox containing lblRemainingCapacity
+        if (lblRemainingCapacity != null && lblRemainingCapacity.getParent() instanceof HBox) {
+            HBox parent = (HBox) lblRemainingCapacity.getParent();
+            parent.getChildren().add(btnWarning);
+        }
     }
 
     private void checkAllImplicitHomeroomAssignments() {
@@ -132,16 +150,15 @@ public class TeacherController {
     private void setupTimeGrid() {
         timeGridSelector = new TimeGridSelector();
         timeGridContainer.getChildren().add(timeGridSelector);
+        
+        // Update capacity when grid changes
+        timeGridSelector.setOnGridChanged(this::updateRemainingCapacity);
     }
 
     private void setupTeacherTreeView() {
         teacherTreeView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null && newVal.getValue() instanceof Teacher) {
                 showTeacherDetails((Teacher) newVal.getValue());
-            } else {
-                // Clear selection if a department node is selected
-                // Or maybe keep the previous teacher details?
-                // For now, let's just do nothing or clear if needed.
             }
         });
         
@@ -199,8 +216,6 @@ public class TeacherController {
                         if (cell.getItem() instanceof Department) {
                             targetDept = (Department) cell.getItem();
                         }
-                        // If "Chưa phân tổ" (String), targetDept remains null
-                        
                         // Update teacher's department
                         draggedTeacher.setDepartment(targetDept);
                         repositoryOrchestrator.getTeacherRepository().update(draggedTeacher);
@@ -423,111 +438,213 @@ public class TeacherController {
     }
 
     private void updateHomeroomConstraints() {
+        // clear all special and forced constraints first
+        for (int d = 0; d < 6; d++) {
+            for (int p = 0; p < 10; p++) {
+                timeGridSelector.setSpecialCell(d, p, null);
+                timeGridSelector.setForcedBusyCell(d, p, null);
+            }
+        }
+
+        // check both Morning and Afternoon sessions
+        Session morningSession = repositoryOrchestrator.getSessionRepository().getByName(ESession.MORNING);
+        Session afternoonSession = repositoryOrchestrator.getSessionRepository().getByName(ESession.AFTERNOON);
+        boolean[][] currentMatrix = timeGridSelector.getBusyMatrix();
+
+        if (morningSession != null) {
+            boolean[][] morningBusy = morningSession.getBusyMatrix();
+            for (int d = 0; d < 6; d++) {
+                for (int p = 0; p < 5; p++) {
+                    if (morningBusy[d][p]) {
+                        currentMatrix[d][p] = true; // Busy
+                        timeGridSelector.setForcedBusyCell(d, p, "Tiết này học sinh nghỉ (theo cấu hình buổi học)");
+                    }
+                }
+            }
+        }
+
+        if (afternoonSession != null) {
+            boolean[][] afternoonBusy = afternoonSession.getBusyMatrix();
+            for (int d = 0; d < 6; d++) {
+                for (int p = 5; p < 10; p++) {
+                    if (afternoonBusy[d][p]) {
+                        currentMatrix[d][p] = true; // Busy
+                        timeGridSelector.setForcedBusyCell(d, p, "Tiết này học sinh nghỉ (theo cấu hình buổi học)");
+                    }
+                }
+            }
+        }
+
+        // 3. Apply Fixed Slots for Flag Salute and Class Meeting for ALL teachers
+        int morningLastDay = 5; int morningLastPeriod = 4; // Default Sat 4
+        int afternoonLastDay = 5; int afternoonLastPeriod = 9; // Default Sat 9
+        
+        // Calculate actual last periods from session config
+        if (morningSession != null) {
+            boolean[][] mBusy = morningSession.getBusyMatrix();
+            // Find last available slot
+            outer: for (int d = 5; d >= 0; d--) {
+                for (int p = 4; p >= 0; p--) {
+                    if (!mBusy[d][p]) {
+                        morningLastDay = d;
+                        morningLastPeriod = p;
+                        break outer;
+                    }
+                }
+            }
+        }
+        
+        if (afternoonSession != null) {
+            boolean[][] aBusy = afternoonSession.getBusyMatrix();
+            // Find last available slot
+            outer: for (int d = 5; d >= 0; d--) {
+                for (int p = 9; p >= 5; p--) {
+                    if (!aBusy[d][p]) {
+                        afternoonLastDay = d;
+                        afternoonLastPeriod = p;
+                        break outer;
+                    }
+                }
+            }
+        }
+        
+        // Apply Busy to ALL 4 slots initially
+        // Morning Flag Salute (Mon 0)
+        currentMatrix[0][0] = true;
+        timeGridSelector.setForcedBusyCell(0, 0, "Giờ Chào cờ");
+        
+        // Morning Class Meeting
+        currentMatrix[morningLastDay][morningLastPeriod] = true;
+        timeGridSelector.setForcedBusyCell(morningLastDay, morningLastPeriod, "Giờ Sinh hoạt lớp");
+
+        int afternoonFlagSalutePeriod = 9;
+        if (afternoonSession != null) {
+             boolean[][] aBusy = afternoonSession.getBusyMatrix();
+             for (int p = 9; p >= 5; p--) {
+                 if (!aBusy[0][p]) {
+                     afternoonFlagSalutePeriod = p;
+                     break;
+                 }
+             }
+        }
+        
+        currentMatrix[0][afternoonFlagSalutePeriod] = true;
+        timeGridSelector.setForcedBusyCell(0, afternoonFlagSalutePeriod, "Giờ Chào cờ");
+        
+        // Afternoon Class Meeting
+        currentMatrix[afternoonLastDay][afternoonLastPeriod] = true;
+        timeGridSelector.setForcedBusyCell(afternoonLastDay, afternoonLastPeriod, "Giờ Sinh hoạt lớp");
+
+
+        // 4. Handle Exceptions for Homeroom Teachers
         if (chkHomeroom.isSelected() && homeroomClassComboBox.getValue() != null) {
             Clazz homeroomClass = homeroomClassComboBox.getValue();
             Grade grade = repositoryOrchestrator.getGradeRepository().getById(homeroomClass.getGradeId());
             if (grade != null && grade.getSession() != null) {
-                // Fetch full session with busy matrix
-                Session fullSession = repositoryOrchestrator.getSessionRepository().getByName(grade.getSession().getSessionName());
-                if (fullSession == null) return;
-
-                ESession session = fullSession.getSessionName();
-                boolean[][] currentMatrix = timeGridSelector.getBusyMatrix();
-                boolean[][] sessionBusyMatrix = fullSession.getBusyMatrix();
+                ESession session = grade.getSession().getSessionName();
                 
                 if (session == ESession.MORNING) {
-                    // Constraint 1: Monday Period 0 (Flag Salute)
-                    currentMatrix[0][0] = false; // Available
+                    // Unmark Morning slots
+                    currentMatrix[0][0] = false; // Available for assignment
+                    timeGridSelector.setForcedBusyCell(0, 0, null); // Remove forced busy
                     timeGridSelector.setSpecialCell(0, 0, "Tiết này dành cho Chào cờ (GVCN phải tham gia)");
                     
-                    // Constraint 2: Last period of the session (Class Meeting)
-                    // Find the last available period in the session (iterate backwards from Saturday to Monday)
-                    int lastDay = -1;
-                    int lastPeriod = -1;
+                    currentMatrix[morningLastDay][morningLastPeriod] = false;
+                    timeGridSelector.setForcedBusyCell(morningLastDay, morningLastPeriod, null);
+                    timeGridSelector.setSpecialCell(morningLastDay, morningLastPeriod, "Tiết này dành cho Sinh hoạt lớp (GVCN phải tham gia)");
                     
-                    // Search for the last available slot in the week
-                    // Iterate days backwards: Saturday (5) -> Monday (0)
-                    for (int d = 5; d >= 0; d--) {
-                        // Iterate periods backwards: 4 -> 0
-                        for (int p = 4; p >= 0; p--) {
-                            if (!sessionBusyMatrix[d][p]) { // If NOT busy (available)
-                                lastDay = d;
-                                lastPeriod = p;
-                                break;
-                            }
-                        }
-                        if (lastDay != -1) break;
-                    }
-                    
-                    if (lastDay != -1 && lastPeriod != -1) {
-                        currentMatrix[lastDay][lastPeriod] = false; // Available
-                        timeGridSelector.setSpecialCell(lastDay, lastPeriod, "Tiết này dành cho Sinh hoạt lớp (GVCN phải tham gia)");
-                    }
-                    
-                    // Unlock potential afternoon constraints if they were locked
-                    timeGridSelector.setSpecialCell(0, 9, null);
-                    // Unlock default Saturday last period if different
-                    if (lastDay != 5 || lastPeriod != 4) timeGridSelector.setSpecialCell(5, 4, null);
-
                 } else if (session == ESession.AFTERNOON) {
-                    // Constraint 1: Last period of Monday (Flag Salute)
-                    int lastMondayPeriod = -1;
-                    for (int p = 9; p >= 5; p--) {
-                        if (!sessionBusyMatrix[0][p]) {
-                            lastMondayPeriod = p;
-                            break;
-                        }
-                    }
+                    // Unmark Afternoon slots
+                    currentMatrix[0][afternoonFlagSalutePeriod] = false;
+                    timeGridSelector.setForcedBusyCell(0, afternoonFlagSalutePeriod, null);
+                    timeGridSelector.setSpecialCell(0, afternoonFlagSalutePeriod, "Tiết này dành cho Chào cờ (GVCN phải tham gia)");
                     
-                    if (lastMondayPeriod != -1) {
-                        currentMatrix[0][lastMondayPeriod] = false; // Available
-                        timeGridSelector.setSpecialCell(0, lastMondayPeriod, "Tiết này dành cho Chào cờ (GVCN phải tham gia)");
-                    }
-                    
-                    // Constraint 2: Last period of the session (Class Meeting)
-                    int lastDay = -1;
-                    int lastPeriod = -1;
-                    
-                    // Search for the last available slot in the week
-                    // Iterate days backwards: Saturday (5) -> Monday (0)
-                    for (int d = 5; d >= 0; d--) {
-                        // Iterate periods backwards: 9 -> 5
-                        for (int p = 9; p >= 5; p--) {
-                            if (!sessionBusyMatrix[d][p]) { // If NOT busy (available)
-                                lastDay = d;
-                                lastPeriod = p;
-                                break;
-                            }
-                        }
-                        if (lastDay != -1) break;
-                    }
-                    
-                    if (lastDay != -1 && lastPeriod != -1) {
-                        currentMatrix[lastDay][lastPeriod] = false; // Available
-                        timeGridSelector.setSpecialCell(lastDay, lastPeriod, "Tiết này dành cho Sinh hoạt lớp (GVCN phải tham gia)");
-                    }
-                    
-                    // Unlock potential morning constraints
-                    timeGridSelector.setSpecialCell(0, 0, null);
-                    timeGridSelector.setSpecialCell(5, 4, null);
-                }
-                
-                timeGridSelector.setBusyMatrix(currentMatrix);
-            }
-        } else {
-            // Unlock all special cells if no homeroom selected
-            timeGridSelector.setSpecialCell(0, 0, null);
-            for (int p = 0; p < 10; p++) {
-                timeGridSelector.setSpecialCell(0, p, null); // Unlock all Monday
-                timeGridSelector.setSpecialCell(5, p, null); // Unlock all Saturday
-            }
-            // Also unlock all other cells just in case
-            for (int d = 0; d < 6; d++) {
-                for (int p = 0; p < 10; p++) {
-                    timeGridSelector.setSpecialCell(d, p, null);
+                    currentMatrix[afternoonLastDay][afternoonLastPeriod] = false;
+                    timeGridSelector.setForcedBusyCell(afternoonLastDay, afternoonLastPeriod, null);
+                    timeGridSelector.setSpecialCell(afternoonLastDay, afternoonLastPeriod, "Tiết này dành cho Sinh hoạt lớp (GVCN phải tham gia)");
                 }
             }
         }
+        
+        timeGridSelector.setBusyMatrix(currentMatrix);
+        updateRemainingCapacity();
+    }
+
+    private void updateRemainingCapacity() {
+        if (timeGridSelector == null) return;
+        
+        boolean[][] busyMatrix = timeGridSelector.getBusyMatrix();
+        int morningCapacity = calculateSessionCapacity(busyMatrix, 0, 5);
+        int afternoonCapacity = calculateSessionCapacity(busyMatrix, 5, 10);
+        
+        // Subtract currently assigned periods
+        int morningAssigned = 0;
+        int afternoonAssigned = 0;
+        
+        for (Assignment a : currentAssignments) {
+            int periods = getPeriodsForAssignment(a);
+            Clazz clazz = repositoryOrchestrator.getClassRepository().getById(a.getClassId());
+            if (clazz != null) {
+                Grade grade = repositoryOrchestrator.getGradeRepository().getById(clazz.getGradeId());
+                if (grade != null && grade.getSession() != null) {
+                    if (grade.getSession().getSessionName() == ESession.MORNING) {
+                        morningAssigned += periods;
+                    } else if (grade.getSession().getSessionName() == ESession.AFTERNOON) {
+                        afternoonAssigned += periods;
+                    }
+                }
+            }
+        }
+        
+        int morningRemaining = morningCapacity - morningAssigned;
+        int afternoonRemaining = afternoonCapacity - afternoonAssigned;
+        
+        lblRemainingCapacity.setText(String.format("Sức chứa còn lại: Sáng: %d, Chiều: %d", morningRemaining, afternoonRemaining));
+
+        // Warning logic
+        if (morningRemaining < 0 || afternoonRemaining < 0) {
+            lblRemainingCapacity.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: red;");
+            timeGridContainer.setStyle("-fx-background-color: rgba(255, 0, 0, 0.1); -fx-background-radius: 5;");
+            btnWarning.setVisible(true);
+            
+            StringBuilder warningMsg = new StringBuilder();
+            if (morningRemaining < 0) {
+                warningMsg.append("Buổi sáng: Cần ").append(morningAssigned).append(" tiết nhưng chỉ có ").append(morningCapacity).append(" tiết.\n");
+            }
+            if (afternoonRemaining < 0) {
+                warningMsg.append("Buổi chiều: Cần ").append(afternoonAssigned).append(" tiết nhưng chỉ có ").append(afternoonCapacity).append(" tiết.\n");
+            }
+            
+            btnWarning.setOnAction(e -> showAlert(Alert.AlertType.WARNING, "Cảnh báo quá tải", warningMsg.toString()));
+        } else {
+            lblRemainingCapacity.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #e67e22;");
+            timeGridContainer.setStyle("-fx-background-color: transparent;");
+            btnWarning.setVisible(false);
+        }
+    }
+    
+    private int calculateSessionCapacity(boolean[][] busyMatrix, int startPeriod, int endPeriod) {
+        int totalCapacity = 0;
+
+        for (int d = 0; d < 6; d++) {
+            // Extract the session periods for this day
+            boolean[] daySession = new boolean[endPeriod - startPeriod];
+            for (int p = 0; p < daySession.length; p++) {
+                daySession[p] = busyMatrix[d][startPeriod + p]; // true if busy
+            }
+
+            int availableSlots = 0;
+            for (boolean busy : daySession) {
+                if (!busy) availableSlots++;
+            }
+
+            if (availableSlots == 5) {
+                totalCapacity += 4;
+            } else {
+                totalCapacity += availableSlots;
+            }
+        }
+        return totalCapacity;
     }
 
     private void setupAssignmentForm() {
@@ -553,7 +670,10 @@ public class TeacherController {
         assignmentTable.setItems(currentAssignments);
 
         // Listen to changes to re-calculate periods
-        currentAssignments.addListener((ListChangeListener<Assignment>) c -> updateTotalPeriods());
+        currentAssignments.addListener((ListChangeListener<Assignment>) c -> {
+            updateTotalPeriods();
+            updateRemainingCapacity();
+        });
     }
 
     // --- ASSIGNMENT LOGIC (Batch Add) ---
@@ -588,7 +708,7 @@ public class TeacherController {
             // Constraint Check for Special Subjects
             if (isSpecialSubject) {
                 // Check if class already has a homeroom teacher
-                // Note: We need fresh data from DB for accurate check
+                // Need fresh data from DB for accurate check
                 Clazz freshClass = repositoryOrchestrator.getClassRepository().getById(clazz.getId());
                 if (freshClass.getHomeroomTeacherId() != null && !freshClass.getHomeroomTeacherId().equals(selectedTeacher.getId())) {
                     Teacher existingTeacher = repositoryOrchestrator.getTeacherRepository().getById(freshClass.getHomeroomTeacherId());
@@ -603,9 +723,7 @@ public class TeacherController {
 
                     Optional<ButtonType> result = confirmAlert.showAndWait();
                     if (result.isPresent() && result.get() == ButtonType.OK) {
-                        // User confirmed overwrite. 
-                        // We don't need to do anything special here, as the save logic will handle the update.
-                        // However, we should probably update the UI to reflect this change if needed.
+                        // User confirmed overwrite.
                     } else {
                         continue; // Skip this class if user cancels
                     }
@@ -619,7 +737,6 @@ public class TeacherController {
                 }
 
                 // If checks pass, we will implicitly set this teacher as homeroom teacher upon saving
-                // For UI feedback, we can update the homeroom controls immediately if single class selected
                 if (selectedClasses.size() == 1) {
                     chkHomeroom.setSelected(true);
                     // Find matching item in combobox
@@ -650,20 +767,26 @@ public class TeacherController {
     }
 
     private void updateTotalPeriods() {
-
+        int totalMorning = 0;
+        int totalAfternoon = 0;
         int total = 0;
         for (Assignment assignment : currentAssignments) {
-            total += getPeriodsForAssignment(assignment);
-        }
-        totalPeriodsLabel.setText("Tổng số tiết: " + total);
+            int periods = getPeriodsForAssignment(assignment);
+            total += periods;
 
-        // Red warning if teaching too many periods (e.g., > 20 periods)
-        if (total > 20) {
-            totalPeriodsLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
-            totalPeriodsLabel.setText(totalPeriodsLabel.getText() + " (QUÁ TẢI)");
-        } else {
-            totalPeriodsLabel.setStyle("-fx-text-fill: black; -fx-font-weight: bold;");
+            Clazz clazz = repositoryOrchestrator.getClassRepository().getById(assignment.getClassId());
+            if (clazz != null) {
+                Grade grade = repositoryOrchestrator.getGradeRepository().getById(clazz.getGradeId());
+                if (grade != null && grade.getSession() != null) {
+                    if (grade.getSession().getSessionName() == ESession.MORNING) {
+                        totalMorning += periods;
+                    } else if (grade.getSession().getSessionName() == ESession.AFTERNOON) {
+                        totalAfternoon += periods;
+                    }
+                }
+            }
         }
+        totalPeriodsLabel.setText(String.format("Tổng số tiết: %d (Sáng: %d, Chiều: %d)", total, totalMorning, totalAfternoon));
     }
 
     private int getPeriodsForAssignment(Assignment assignment) {
@@ -811,8 +934,6 @@ public class TeacherController {
             // Refresh tree view
             refreshTeacherTreeView();
             
-            // Select the new teacher (might need to find the TreeItem)
-            // For simplicity, just refresh for now.
             nameField.requestFocus();
         });
     }
@@ -834,6 +955,31 @@ public class TeacherController {
             boolean[][] busyMatrix = timeGridSelector.getBusyMatrix();
             
             // Re-apply constraints to ensure they are saved correctly even if user tried to bypass UI
+            Session morningSession = repositoryOrchestrator.getSessionRepository().getByName(ESession.MORNING);
+            Session afternoonSession = repositoryOrchestrator.getSessionRepository().getByName(ESession.AFTERNOON);
+
+            if (morningSession != null) {
+                boolean[][] morningBusy = morningSession.getBusyMatrix();
+                for (int d = 0; d < 6; d++) {
+                    for (int p = 0; p < 5; p++) {
+                        if (morningBusy[d][p]) {
+                            busyMatrix[d][p] = true; // Busy
+                        }
+                    }
+                }
+            }
+
+            if (afternoonSession != null) {
+                boolean[][] afternoonBusy = afternoonSession.getBusyMatrix();
+                for (int d = 0; d < 6; d++) {
+                    for (int p = 5; p < 10; p++) {
+                        if (afternoonBusy[d][p]) {
+                            busyMatrix[d][p] = true; // Busy
+                        }
+                    }
+                }
+            }
+
             if (chkHomeroom.isSelected() && homeroomClassComboBox.getValue() != null) {
                 Clazz homeroomClass = homeroomClassComboBox.getValue();
                 Grade grade = repositoryOrchestrator.getGradeRepository().getById(homeroomClass.getGradeId());
@@ -904,6 +1050,46 @@ public class TeacherController {
             // Save assignment list from table to Teacher Object
             selected.setAssignments(FXCollections.observableArrayList(currentAssignments));
 
+            // Check capacity before saving
+            int morningCapacity = calculateSessionCapacity(busyMatrix, 0, 5);
+            int afternoonCapacity = calculateSessionCapacity(busyMatrix, 5, 10);
+            int morningAssigned = 0;
+            int afternoonAssigned = 0;
+            for (Assignment a : currentAssignments) {
+                int periods = getPeriodsForAssignment(a);
+                Clazz clazz = repositoryOrchestrator.getClassRepository().getById(a.getClassId());
+                if (clazz != null) {
+                    Grade grade = repositoryOrchestrator.getGradeRepository().getById(clazz.getGradeId());
+                    if (grade != null && grade.getSession() != null) {
+                        if (grade.getSession().getSessionName() == ESession.MORNING) {
+                            morningAssigned += periods;
+                        } else if (grade.getSession().getSessionName() == ESession.AFTERNOON) {
+                            afternoonAssigned += periods;
+                        }
+                    }
+                }
+            }
+            
+            if (morningAssigned > morningCapacity || afternoonAssigned > afternoonCapacity) {
+                StringBuilder warningMsg = new StringBuilder();
+                if (morningAssigned > morningCapacity) {
+                    warningMsg.append("Buổi sáng: Cần ").append(morningAssigned).append(" tiết nhưng chỉ có ").append(morningCapacity).append(" tiết.\n");
+                }
+                if (afternoonAssigned > afternoonCapacity) {
+                    warningMsg.append("Buổi chiều: Cần ").append(afternoonAssigned).append(" tiết nhưng chỉ có ").append(afternoonCapacity).append(" tiết.\n");
+                }
+                
+                Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+                alert.setTitle("Cảnh báo quá tải");
+                alert.setHeaderText("Giáo viên này đang bị quá tải!");
+                alert.setContentText(warningMsg.toString() + "\nBạn có chắc chắn muốn lưu không?");
+                
+                Optional<ButtonType> result = alert.showAndWait();
+                if (result.isEmpty() || result.get() != ButtonType.OK) {
+                    return;
+                }
+            }
+
             // Save to DB
             try {
                 boolean updated = repositoryOrchestrator.getTeacherRepository().update(selected);
@@ -939,10 +1125,30 @@ public class TeacherController {
                 checkImplicitHomeroomAssignment(selected);
 
                 refreshTeacherTreeView();
+                
+                // Re-select the teacher to update UI and internal state
+                findAndSelectTeacher(selected.getId());
+                
                 showAlert(Alert.AlertType.INFORMATION, "Thành công", "Đã lưu thông tin giáo viên!");
             } catch (Exception e) {
                 showAlert(Alert.AlertType.ERROR, "Lỗi", "Không thể lưu giáo viên: " + e.getMessage());
                 e.printStackTrace();
+            }
+        }
+    }
+    
+    private void findAndSelectTeacher(String teacherId) {
+        if (teacherTreeView.getRoot() == null) return;
+        
+        for (TreeItem<Object> deptNode : teacherTreeView.getRoot().getChildren()) {
+            for (TreeItem<Object> teacherNode : deptNode.getChildren()) {
+                if (teacherNode.getValue() instanceof Teacher) {
+                    Teacher t = (Teacher) teacherNode.getValue();
+                    if (t.getId().equals(teacherId)) {
+                        teacherTreeView.getSelectionModel().select(teacherNode);
+                        return;
+                    }
+                }
             }
         }
     }
