@@ -109,7 +109,7 @@ public class TeacherController {
     }
 
     private void setupWarningButton() {
-        btnWarning = new Button("⚠️");
+        btnWarning = new Button("⚠");
         btnWarning.setStyle("-fx-background-color: transparent; -fx-text-fill: red; -fx-font-size: 16px; -fx-font-weight: bold; -fx-cursor: hand;");
         btnWarning.setVisible(false);
         
