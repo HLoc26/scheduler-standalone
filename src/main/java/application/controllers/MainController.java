@@ -86,10 +86,8 @@ public class MainController {
 
     @FXML
     public void showScheduler() {
-        ScheduleController scheduleController = new ScheduleController(repo);
-        // When "Generate" is clicked, show the Config screen (Modal)
-        scheduleController.setOnReGenerateRequest(this::showScheduleConfig);
-        loadView("ScheduleView.fxml", scheduleController);
+        // Directly show the Result View (which acts as the main view now)
+        showScheduleResult();
         setActiveButton(btnScheduler);
     }
 
@@ -103,48 +101,17 @@ public class MainController {
 
     @FXML
     public void showScheduleConfig() {
-        try {
-            ScheduleConfigController configController = new ScheduleConfigController(repo);
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/application/ScheduleConfig.fxml"));
+        ScheduleConfigController configController = new ScheduleConfigController(repo);
+        
+        // When "Next" is clicked, go to Generator
+        configController.setOnNext((maxTime, maxWorkers) -> {
+            showScheduleGenerator(maxTime, maxWorkers);
+        });
 
-            // Use setControllerFactory instead of setController to avoid "Controller value already specified" error
-            loader.setControllerFactory(clazz -> {
-                if (clazz == ScheduleConfigController.class) {
-                    return configController;
-                }
-                try {
-                    return clazz.getDeclaredConstructor().newInstance();
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
+        // When "Cancel" is clicked, go back to Scheduler (Result View)
+        configController.setOnCancel(this::showScheduleResult);
 
-            Parent root = loader.load();
-
-            Stage stage = new Stage();
-            stage.initModality(Modality.APPLICATION_MODAL);
-            stage.setTitle("Cấu hình Xếp lịch");
-            stage.setScene(new Scene(root));
-            stage.setResizable(false);
-
-            // When "Next" is clicked, close modal and go to Generator
-            configController.setOnNext((maxTime, maxWorkers) -> {
-                stage.close();
-                showScheduleGenerator(maxTime, maxWorkers);
-            });
-
-            // When "Cancel" is clicked, just close modal
-            configController.setOnCancel(stage::close);
-
-            stage.showAndWait();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Lỗi");
-            alert.setContentText("Không thể mở màn hình cấu hình: " + e.getMessage());
-            alert.showAndWait();
-        }
+        loadView("ScheduleConfig.fxml", configController);
     }
 
     public void showScheduleGenerator(int maxTime, int maxWorkers) {
@@ -158,12 +125,14 @@ public class MainController {
 
     // Hàm hiển thị trang Kết quả
     public void showScheduleResult() {
-        ScheduleController resultController = new ScheduleController(repo);
+        ScheduleResultController resultController = new ScheduleResultController(repo);
 
-        // Khi bấm nút "Chạy lại" ở trang kết quả -> Quay lại trang Config (Modal)
+        // Khi bấm nút "Xếp lại lịch" ở trang kết quả -> Quay lại trang Config
         resultController.setOnReGenerateRequest(this::showScheduleConfig);
+        
+        // No back button needed anymore as this is the main view
 
-        loadView("ScheduleView.fxml", resultController);
+        loadView("ScheduleResultView.fxml", resultController);
     }
 
     @FXML
