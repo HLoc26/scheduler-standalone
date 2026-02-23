@@ -159,7 +159,12 @@ public class TimeGridSelector extends VBox {
     private void updateButtonStyle(ToggleButton btn) {
         String style;
         if (btn.isSelected()) {
-            style = "-fx-base: #ef9a9a; -fx-text-fill: red; -fx-font-weight: bold;";
+            String customColor = (String) btn.getProperties().get("customColor");
+            if (customColor != null) {
+                style = "-fx-base: " + customColor + "; -fx-text-fill: white; -fx-font-weight: bold;";
+            } else {
+                style = "-fx-base: #ef9a9a; -fx-text-fill: red; -fx-font-weight: bold;";
+            }
         } else {
             style = "-fx-base: #e3f2fd;";
         }
@@ -343,18 +348,30 @@ public class TimeGridSelector extends VBox {
     }
 
     public void setForcedBusyCell(int day, int period, String message) {
+        setForcedBusyCell(day, period, message, null);
+    }
+
+    public void setForcedBusyCell(int day, int period, String message, String color) {
         if (day >= 0 && day < DAYS.length && period >= 0 && period < totalPeriods) {
             forcedBusyMessages[day][period] = message;
-            // If setting a forced busy message, ensure the cell is selected (busy)
             if (message != null) {
                 if (cells[day][period] != null) {
                     boolean oldSuppress = suppressAlerts;
                     suppressAlerts = true;
                     cells[day][period].setSelected(true);
+                    if (color != null) {
+                        cells[day][period].getProperties().put("customColor", color);
+                    } else {
+                        cells[day][period].getProperties().remove("customColor");
+                    }
                     suppressAlerts = oldSuppress;
-
-                    // We don't disable the button so it can be clicked to show the alert
                     cells[day][period].setDisable(false);
+                    updateButtonStyle(cells[day][period]);
+                }
+            } else {
+                if (cells[day][period] != null) {
+                    cells[day][period].getProperties().remove("customColor");
+                    updateButtonStyle(cells[day][period]);
                 }
             }
         }
