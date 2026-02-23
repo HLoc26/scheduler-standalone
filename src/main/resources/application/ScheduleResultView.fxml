@@ -7,8 +7,8 @@
 <?import javafx.scene.text.Font?>
 <BorderPane xmlns:fx="http://javafx.com/fxml/1" prefHeight="768.0" prefWidth="1200.0"
             style="-fx-background-color: #f8fafc;"
-            stylesheets="@ScheduleView.css" xmlns="http://javafx.com/javafx/17"
-            fx:controller="application.controllers.ScheduleController">
+            stylesheets="@ScheduleResultView.css" xmlns="http://javafx.com/javafx/17"
+            fx:controller="application.controllers.ScheduleResultController">
     <center>
         <SplitPane dividerPositions="0.2">
             <VBox prefWidth="300.0"

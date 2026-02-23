@@ -3,7 +3,6 @@ package application.controllers;
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
 import application.utils.ExcelExporter;
-import application.utils.ScheduleValidator;
 import javafx.collections.FXCollections;
 import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
@@ -19,11 +18,11 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
 
-public class ScheduleController {
+public class ScheduleResultController {
 
     private final RepositoryOrchestrator repo;
-    private final ScheduleValidator scheduleValidator;
     private Runnable onReGenerateRequest;
+    // Back request is no longer needed as this is the main view
 
     // --- FXML Fields for Sidebar ---
     @FXML
@@ -48,9 +47,8 @@ public class ScheduleController {
     // Data for filtering
     private FilteredList<Object> filteredData;
 
-    public ScheduleController(RepositoryOrchestrator repo) {
+    public ScheduleResultController(RepositoryOrchestrator repo) {
         this.repo = repo;
-        this.scheduleValidator = new ScheduleValidator(repo);
     }
 
     public void initialize() {
@@ -63,6 +61,8 @@ public class ScheduleController {
         HBox buttonBox = new HBox(10);
         buttonBox.setAlignment(Pos.CENTER_RIGHT); // Align buttons to the left
         // buttonBox.setPadding(new Insets(10)); // Padding handled by parent container
+
+        // Removed Back Button
 
         Button btnReSchedule = new Button("Xếp lại lịch");
         btnReSchedule.setStyle("-fx-background-color: #f1c40f; -fx-text-fill: black; -fx-font-weight: bold; -fx-cursor: hand;");
@@ -355,43 +355,8 @@ public class ScheduleController {
 
     @FXML
     public void handleReGenerate() {
-        // Perform checks before regenerating
-        List<Teacher> allTeachers = repo.getTeacherRepository().getAll();
-        List<String> allWarnings = new ArrayList<>();
-
-        // 1. Validate Teacher Conflicts
-        for (Teacher teacher : allTeachers) {
-            // We need to fetch assignments for each teacher to check conflicts
-            List<Assignment> assignments = repo.getAssignmentRepository().getByTeacherId(teacher.getId());
-            List<String> teacherWarnings = scheduleValidator.validateTeacherConflicts(teacher, allTeachers, assignments);
-            if (!teacherWarnings.isEmpty()) {
-                allWarnings.add("Giáo viên " + teacher.getName() + ":");
-                allWarnings.addAll(teacherWarnings);
-                allWarnings.add(""); // Empty line for separation
-            }
-        }
-
-        if (!allWarnings.isEmpty()) {
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-            alert.setTitle("Cảnh báo xung đột");
-            alert.setHeaderText("Phát hiện các vấn đề tiềm ẩn trước khi xếp lịch:");
-
-            StringBuilder sb = new StringBuilder();
-            for (String s : allWarnings) sb.append(s).append("\n");
-            sb.append("\nBạn có muốn tiếp tục không?");
-
-            TextArea area = new TextArea(sb.toString());
-            area.setWrapText(true);
-            area.setEditable(false);
-            area.setPrefHeight(200);
-            alert.getDialogPane().setContent(area);
-
-            Optional<ButtonType> result = alert.showAndWait();
-            if (result.isEmpty() || result.get() != ButtonType.OK) {
-                return;
-            }
-        }
-
+        // Simply trigger the callback to open the config screen
+        // The validation logic is now moved to ScheduleConfigController
         if (onReGenerateRequest != null) {
             onReGenerateRequest.run();
         }
