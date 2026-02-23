@@ -119,6 +119,30 @@ public class AssignmentRepository implements IRepository {
         }
     }
 
+    public List<Assignment> getByClassId(String id) {
+        String sql = "SELECT * FROM assignments WHERE class_id = ?";
+        List<Assignment> assignments = new ArrayList<>();
+        try (
+                Connection conn = databaseHandler.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)
+        ) {
+            ps.setString(1, id);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                Assignment a = new Assignment(
+                        rs.getString("id"),
+                        rs.getString("teacher_id"),
+                        rs.getString("subject_id"),
+                        rs.getString("class_id")
+                );
+                assignments.add(a);
+            }
+            return assignments;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public Assignment getByClassAndSubject(String classId, String subjectId) {
         String sql = "SELECT * FROM assignments WHERE class_id = ? AND subject_id = ?;";
         try (
