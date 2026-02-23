@@ -2,6 +2,7 @@ package application.controllers;
 
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
+import application.utils.ScheduleValidator;
 import application.views.TimeGridSelector;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
@@ -11,6 +12,7 @@ import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
@@ -19,6 +21,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Rectangle;
 import javafx.util.Callback;
 import scheduler.common.constants.SubjectConstants;
 
@@ -28,6 +31,7 @@ import java.util.*;
 public class TeacherController {
 
     private final RepositoryOrchestrator repositoryOrchestrator;
+    private final ScheduleValidator scheduleValidator;
     private final ObservableList<Teacher> teacherList = FXCollections.observableArrayList();
     // Temporary assignment before save
     private final ObservableList<Assignment> currentAssignments = FXCollections.observableArrayList();
@@ -90,6 +94,7 @@ public class TeacherController {
 
     public TeacherController(RepositoryOrchestrator repositoryOrchestrator) {
         this.repositoryOrchestrator = repositoryOrchestrator;
+        this.scheduleValidator = new ScheduleValidator(repositoryOrchestrator);
     }
 
     public void initialize() {
@@ -149,10 +154,43 @@ public class TeacherController {
 
     private void setupTimeGrid() {
         timeGridSelector = new TimeGridSelector();
-        timeGridContainer.getChildren().add(timeGridSelector);
+
+        HBox legend = createLegend();
+        VBox container = new VBox(10);
+        container.getChildren().addAll(timeGridSelector, legend);
+        container.setAlignment(Pos.CENTER);
+
+        timeGridContainer.getChildren().add(container);
 
         // Update capacity when grid changes
         timeGridSelector.setOnGridChanged(this::updateRemainingCapacity);
+    }
+
+    private HBox createLegend() {
+        HBox legend = new HBox(20);
+        legend.setAlignment(Pos.CENTER);
+        legend.setPadding(new Insets(10));
+
+        legend.getChildren().addAll(
+                createLegendItem("#ef9a9a", "Giáo viên bận"),
+                createLegendItem("#bdc3c7", "Học sinh nghỉ"),
+                createLegendItem("#f1c40f", "Hoạt động chung")
+        );
+        return legend;
+    }
+
+    private HBox createLegendItem(String color, String text) {
+        HBox item = new HBox(5);
+        item.setAlignment(Pos.CENTER_LEFT);
+
+        Rectangle rect = new Rectangle(20, 20);
+        rect.setStyle("-fx-fill: " + color + "; -fx-stroke: #7f8c8d; -fx-stroke-width: 1;");
+
+        Label lbl = new Label(text);
+        lbl.setStyle("-fx-font-size: 12px; -fx-text-fill: black;");
+
+        item.getChildren().addAll(rect, lbl);
+        return item;
     }
 
     private void setupTeacherTreeView() {
@@ -457,7 +495,7 @@ public class TeacherController {
                 for (int p = 0; p < 5; p++) {
                     if (morningBusy[d][p]) {
                         currentMatrix[d][p] = true; // Busy
-                        timeGridSelector.setForcedBusyCell(d, p, "Tiết này học sinh nghỉ (theo cấu hình buổi học)");
+                        timeGridSelector.setForcedBusyCell(d, p, "Tiết này học sinh nghỉ (theo cấu hình buổi học)", "#bdc3c7");
                     }
                 }
             }
@@ -469,7 +507,7 @@ public class TeacherController {
                 for (int p = 5; p < 10; p++) {
                     if (afternoonBusy[d][p]) {
                         currentMatrix[d][p] = true; // Busy
-                        timeGridSelector.setForcedBusyCell(d, p, "Tiết này học sinh nghỉ (theo cấu hình buổi học)");
+                        timeGridSelector.setForcedBusyCell(d, p, "Tiết này học sinh nghỉ (theo cấu hình buổi học)", "#bdc3c7");
                     }
                 }
             }
@@ -515,11 +553,11 @@ public class TeacherController {
         // Apply Busy to ALL 4 slots initially
         // Morning Flag Salute (Mon 0)
         currentMatrix[0][0] = true;
-        timeGridSelector.setForcedBusyCell(0, 0, "Giờ Chào cờ");
+        timeGridSelector.setForcedBusyCell(0, 0, "Giờ Chào cờ", "#f1c40f");
 
         // Morning Class Meeting
         currentMatrix[morningLastDay][morningLastPeriod] = true;
-        timeGridSelector.setForcedBusyCell(morningLastDay, morningLastPeriod, "Giờ Sinh hoạt lớp");
+        timeGridSelector.setForcedBusyCell(morningLastDay, morningLastPeriod, "Giờ Sinh hoạt lớp", "#f1c40f");
 
         int afternoonFlagSalutePeriod = 9;
         if (afternoonSession != null) {
@@ -533,11 +571,11 @@ public class TeacherController {
         }
 
         currentMatrix[0][afternoonFlagSalutePeriod] = true;
-        timeGridSelector.setForcedBusyCell(0, afternoonFlagSalutePeriod, "Giờ Chào cờ");
+        timeGridSelector.setForcedBusyCell(0, afternoonFlagSalutePeriod, "Giờ Chào cờ", "#f1c40f");
 
         // Afternoon Class Meeting
         currentMatrix[afternoonLastDay][afternoonLastPeriod] = true;
-        timeGridSelector.setForcedBusyCell(afternoonLastDay, afternoonLastPeriod, "Giờ Sinh hoạt lớp");
+        timeGridSelector.setForcedBusyCell(afternoonLastDay, afternoonLastPeriod, "Giờ Sinh hoạt lớp", "#f1c40f");
 
 
         // 4. Handle Exceptions for Homeroom Teachers
@@ -1094,6 +1132,29 @@ public class TeacherController {
                 }
             }
 
+            // NEW CONFLICT CHECKS
+            List<String> conflicts = validateTeacherConflicts(selected);
+            if (!conflicts.isEmpty()) {
+                Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+                alert.setTitle("Phát hiện xung đột");
+                alert.setHeaderText("Có các vấn đề tiềm ẩn với lịch của giáo viên này:");
+
+                StringBuilder sb = new StringBuilder();
+                for (String s : conflicts) sb.append("- ").append(s).append("\n");
+                sb.append("\nBạn có chắc chắn muốn lưu không?");
+
+                TextArea area = new TextArea(sb.toString());
+                area.setWrapText(true);
+                area.setEditable(false);
+                area.setPrefHeight(150);
+                alert.getDialogPane().setContent(area);
+
+                Optional<ButtonType> result = alert.showAndWait();
+                if (result.isEmpty() || result.get() != ButtonType.OK) {
+                    return;
+                }
+            }
+
             // Save to DB
             try {
                 boolean updated = repositoryOrchestrator.getTeacherRepository().update(selected);
@@ -1431,5 +1492,10 @@ public class TeacherController {
     private void loadDepartments() {
         List<Department> departments = repositoryOrchestrator.getDepartmentRepository().getAll();
         departmentComboBox.setItems(FXCollections.observableArrayList(departments));
+    }
+
+    private List<String> validateTeacherConflicts(Teacher teacher) {
+        List<Teacher> allTeachers = repositoryOrchestrator.getTeacherRepository().getAll();
+        return scheduleValidator.validateTeacherConflicts(teacher, allTeachers, currentAssignments);
     }
 }
