@@ -8,9 +8,14 @@ import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 
 public class ScheduleConfigController {
@@ -35,7 +40,9 @@ public class ScheduleConfigController {
     @FXML
     private Label lblStatus;
     @FXML
-    private TextArea txtValidationErrors;
+    private ScrollPane scrollPaneValidation;
+    @FXML
+    private TextFlow txtFlowValidationErrors;
 
     public ScheduleConfigController(RepositoryOrchestrator repo) {
         this.repo = repo;
@@ -90,14 +97,16 @@ public class ScheduleConfigController {
             validationContainer.setManaged(true);
             progressIndicator.setVisible(true);
             lblStatus.setText("Đang kiểm tra dữ liệu...");
-            txtValidationErrors.setVisible(false);
-            txtValidationErrors.setManaged(false);
+            
+            scrollPaneValidation.setVisible(false);
+            scrollPaneValidation.setManaged(false);
+            txtFlowValidationErrors.getChildren().clear();
 
             // Run validation in background
-            Task<List<String>> validationTask = new Task<>() {
+            Task<Map<String, List<String>>> validationTask = new Task<>() {
                 @Override
-                protected List<String> call() throws Exception {
-                    List<String> allWarnings = new ArrayList<>();
+                protected Map<String, List<String>> call() throws Exception {
+                    Map<String, List<String>> warningsMap = new LinkedHashMap<>();
                     List<Teacher> teachers = repo.getTeacherRepository().getAll();
                     
                     int count = 0;
@@ -110,11 +119,10 @@ public class ScheduleConfigController {
                         // We pass empty list for currentAssignments as we are validating initial state
                         List<String> warnings = scheduleValidator.validateTeacherConflicts(teacher, teachers, new ArrayList<>());
                         if (!warnings.isEmpty()) {
-                            allWarnings.add("--- " + teacher.getName() + " ---");
-                            allWarnings.addAll(warnings);
+                            warningsMap.put(teacher.getName(), warnings);
                         }
                     }
-                    return allWarnings;
+                    return warningsMap;
                 }
             };
 
@@ -122,8 +130,8 @@ public class ScheduleConfigController {
                 // Unbind first to avoid "A bound value cannot be set" error
                 lblStatus.textProperty().unbind();
                 
-                List<String> warnings = validationTask.getValue();
-                if (warnings.isEmpty()) {
+                Map<String, List<String>> warningsMap = validationTask.getValue();
+                if (warningsMap.isEmpty()) {
                     // Success
                     lblStatus.setText("Dữ liệu hợp lệ!");
                     progressIndicator.setVisible(false);
@@ -138,15 +146,28 @@ public class ScheduleConfigController {
                     setUiEnabled(true); // Re-enable so user can cancel or try again (though data needs fixing)
                     progressIndicator.setVisible(false);
                     lblStatus.setText("Phát hiện vấn đề trong dữ liệu:");
+
+                    scrollPaneValidation.setVisible(true);
+                    scrollPaneValidation.setManaged(true);
                     
-                    StringBuilder sb = new StringBuilder();
-                    for (String w : warnings) {
-                        sb.append(w).append("\n");
+                    for (Map.Entry<String, List<String>> entry : warningsMap.entrySet()) {
+                        Text teacherName = new Text("--- " + entry.getKey() + " ---\n");
+                        teacherName.setStyle("-fx-font-weight: bold; -fx-fill: #2c3e50;");
+                        txtFlowValidationErrors.getChildren().add(teacherName);
+
+                        for (String w : entry.getValue()) {
+                            Text warningText = new Text("    " + w + "\n");
+                            if (w.contains("Nghiêm trọng") || w.contains("Quá tải")) {
+                                warningText.setFill(Color.RED);
+                            } else if (w.contains("Cảnh báo") || w.contains("Nguy cơ")) {
+                                warningText.setFill(Color.ORANGE); // Or DARKGOLDENROD
+                            } else {
+                                warningText.setFill(Color.BLACK);
+                            }
+                            txtFlowValidationErrors.getChildren().add(warningText);
+                        }
+                        txtFlowValidationErrors.getChildren().add(new Text("\n"));
                     }
-                    
-                    txtValidationErrors.setText(sb.toString());
-                    txtValidationErrors.setVisible(true);
-                    txtValidationErrors.setManaged(true);
                 }
             });
 
