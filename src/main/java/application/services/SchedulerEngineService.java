@@ -108,6 +108,7 @@ public class SchedulerEngineService extends Service<Map<Variable, Slot>> {
 
                     pb.redirectErrorStream(true);
 
+                    updateMessage("[INFO] Đang xếp lịch...");
                     Process process = pb.start();
 
                     try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
