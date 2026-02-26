@@ -31,6 +31,8 @@ public class ScheduleConfigController {
     @FXML
     private Spinner<Integer> spnMaxWorkers;
     @FXML
+    private CheckBox chkRunPreCheck;
+    @FXML
     private Button btnCancel;
     @FXML
     private Button btnNext;
@@ -79,6 +81,11 @@ public class ScheduleConfigController {
         // Reset validation state if user changes config
         spnMaxTime.valueProperty().addListener((obs, oldVal, newVal) -> resetValidationState());
         spnMaxWorkers.valueProperty().addListener((obs, oldVal, newVal) -> resetValidationState());
+        
+        // If user unchecks the box, reset validation state (hide errors if any)
+        if (chkRunPreCheck != null) {
+            chkRunPreCheck.selectedProperty().addListener((obs, oldVal, newVal) -> resetValidationState());
+        }
     }
 
     private void resetValidationState() {
@@ -104,6 +111,18 @@ public class ScheduleConfigController {
 
             if (maxTimeMinutes <= 0 || maxWorkers <= 0) {
                 showAlert("Lỗi", "Giá trị phải lớn hơn 0.");
+                return;
+            }
+
+            // Check if pre-check is enabled
+            boolean runPreCheck = chkRunPreCheck != null && chkRunPreCheck.isSelected();
+
+            // If pre-check is disabled, proceed directly
+            if (!runPreCheck) {
+                int maxTimeSeconds = maxTimeMinutes * 60;
+                if (onNextCallback != null) {
+                    onNextCallback.accept(maxTimeSeconds, maxWorkers);
+                }
                 return;
             }
 
@@ -238,6 +257,7 @@ public class ScheduleConfigController {
     private void setUiEnabled(boolean enabled) {
         spnMaxTime.setDisable(!enabled);
         spnMaxWorkers.setDisable(!enabled);
+        if (chkRunPreCheck != null) chkRunPreCheck.setDisable(!enabled);
         btnNext.setDisable(!enabled);
         // btnCancel.setDisable(!enabled);
     }

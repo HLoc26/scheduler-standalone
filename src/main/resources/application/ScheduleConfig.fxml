@@ -32,6 +32,7 @@
             <rowConstraints>
                 <RowConstraints minHeight="10.0" prefHeight="40.0" vgrow="SOMETIMES"/>
                 <RowConstraints minHeight="10.0" prefHeight="40.0" vgrow="SOMETIMES"/>
+                <RowConstraints minHeight="10.0" prefHeight="40.0" vgrow="SOMETIMES"/>
             </rowConstraints>
             <children>
                 <Label text="Thời gian tối đa (phút):" textFill="#34495e" GridPane.rowIndex="0"
@@ -51,6 +52,14 @@
                 </Label>
                 <Spinner fx:id="spnMaxWorkers" editable="true" maxWidth="200.0" GridPane.rowIndex="1"
                          GridPane.columnIndex="1"/>
+
+                <CheckBox fx:id="chkRunPreCheck" text="Chạy kiểm tra dữ liệu trước khi xếp lịch" selected="true"
+                          textFill="#34495e" GridPane.rowIndex="2" GridPane.columnIndex="0" GridPane.columnSpan="2"
+                          GridPane.halignment="CENTER">
+                    <font>
+                        <Font size="14.0"/>
+                    </font>
+                </CheckBox>
             </children>
         </GridPane>
 
