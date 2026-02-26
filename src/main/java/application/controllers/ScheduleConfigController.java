@@ -16,14 +16,15 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 
 public class ScheduleConfigController {
 
     private final RepositoryOrchestrator repo;
+    private final ScheduleValidator scheduleValidator;
     private BiConsumer<Integer, Integer> onNextCallback;
     private Runnable onCancelCallback;
-    private ScheduleValidator scheduleValidator;
 
     @FXML
     private Spinner<Integer> spnMaxTime;
@@ -43,6 +44,9 @@ public class ScheduleConfigController {
     private ScrollPane scrollPaneValidation;
     @FXML
     private TextFlow txtFlowValidationErrors;
+
+    private boolean hasValidated = false;
+    private boolean hasSeriousWarnings = false;
 
     public ScheduleConfigController(RepositoryOrchestrator repo) {
         this.repo = repo;
@@ -71,6 +75,18 @@ public class ScheduleConfigController {
         // Max Workers: 1 to 32, default calculated
         SpinnerValueFactory<Integer> workerFactory = new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 32, defaultWorkers);
         spnMaxWorkers.setValueFactory(workerFactory);
+
+        // Reset validation state if user changes config
+        spnMaxTime.valueProperty().addListener((obs, oldVal, newVal) -> resetValidationState());
+        spnMaxWorkers.valueProperty().addListener((obs, oldVal, newVal) -> resetValidationState());
+    }
+
+    private void resetValidationState() {
+        hasValidated = false;
+        hasSeriousWarnings = false;
+        btnNext.setText("Tiếp tục");
+        validationContainer.setVisible(false);
+        validationContainer.setManaged(false);
     }
 
     @FXML
@@ -91,13 +107,34 @@ public class ScheduleConfigController {
                 return;
             }
 
+            // If already validated and user clicks again, proceed directly
+            if (hasValidated) {
+                if (hasSeriousWarnings) {
+                    Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+                    confirmAlert.setTitle("Cảnh báo nghiêm trọng");
+                    confirmAlert.setHeaderText("Dữ liệu có lỗi nghiêm trọng!");
+                    confirmAlert.setContentText("Việc tiếp tục có thể dẫn đến kết quả xếp lịch không tối ưu hoặc thất bại. Bạn có chắc chắn muốn tiếp tục không?");
+
+                    Optional<ButtonType> result = confirmAlert.showAndWait();
+                    if (result.isEmpty() || result.get() != ButtonType.OK) {
+                        return;
+                    }
+                }
+
+                int maxTimeSeconds = maxTimeMinutes * 60;
+                if (onNextCallback != null) {
+                    onNextCallback.accept(maxTimeSeconds, maxWorkers);
+                }
+                return;
+            }
+
             // Disable UI
             setUiEnabled(false);
             validationContainer.setVisible(true);
             validationContainer.setManaged(true);
             progressIndicator.setVisible(true);
             lblStatus.setText("Đang kiểm tra dữ liệu...");
-            
+
             scrollPaneValidation.setVisible(false);
             scrollPaneValidation.setManaged(false);
             txtFlowValidationErrors.getChildren().clear();
@@ -108,14 +145,14 @@ public class ScheduleConfigController {
                 protected Map<String, List<String>> call() throws Exception {
                     Map<String, List<String>> warningsMap = new LinkedHashMap<>();
                     List<Teacher> teachers = repo.getTeacherRepository().getAll();
-                    
+
                     int count = 0;
                     int total = teachers.size();
 
                     for (Teacher teacher : teachers) {
                         count++;
                         updateMessage("Đang kiểm tra giáo viên: " + teacher.getName() + " (" + count + "/" + total + ")");
-                        
+
                         // We pass empty list for currentAssignments as we are validating initial state
                         List<String> warnings = scheduleValidator.validateTeacherConflicts(teacher, teachers, new ArrayList<>());
                         if (!warnings.isEmpty()) {
@@ -129,27 +166,28 @@ public class ScheduleConfigController {
             validationTask.setOnSucceeded(e -> {
                 // Unbind first to avoid "A bound value cannot be set" error
                 lblStatus.textProperty().unbind();
-                
+
                 Map<String, List<String>> warningsMap = validationTask.getValue();
                 if (warningsMap.isEmpty()) {
-                    // Success
+                    // Success -> Proceed immediately
                     lblStatus.setText("Dữ liệu hợp lệ!");
                     progressIndicator.setVisible(false);
-                    
-                    // Proceed
+
                     int maxTimeSeconds = maxTimeMinutes * 60;
                     if (onNextCallback != null) {
                         onNextCallback.accept(maxTimeSeconds, maxWorkers);
                     }
                 } else {
-                    // Show errors
-                    setUiEnabled(true); // Re-enable so user can cancel or try again (though data needs fixing)
+                    // Show errors and allow bypass
+                    setUiEnabled(true);
                     progressIndicator.setVisible(false);
-                    lblStatus.setText("Phát hiện vấn đề trong dữ liệu:");
+                    lblStatus.setText("Phát hiện vấn đề (Nhấn Tiếp tục lần nữa để bỏ qua):");
 
                     scrollPaneValidation.setVisible(true);
                     scrollPaneValidation.setManaged(true);
-                    
+
+                    hasSeriousWarnings = false; // Reset flag
+
                     for (Map.Entry<String, List<String>> entry : warningsMap.entrySet()) {
                         Text teacherName = new Text("--- " + entry.getKey() + " ---\n");
                         teacherName.setStyle("-fx-font-weight: bold; -fx-fill: #2c3e50;");
@@ -159,8 +197,9 @@ public class ScheduleConfigController {
                             Text warningText = new Text("    " + w + "\n");
                             if (w.contains("Nghiêm trọng") || w.contains("Quá tải")) {
                                 warningText.setFill(Color.RED);
+                                hasSeriousWarnings = true; // Set flag if serious warning found
                             } else if (w.contains("Cảnh báo") || w.contains("Nguy cơ")) {
-                                warningText.setFill(Color.ORANGE); // Or DARKGOLDENROD
+                                warningText.setFill(Color.ORANGE);
                             } else {
                                 warningText.setFill(Color.BLACK);
                             }
@@ -168,6 +207,10 @@ public class ScheduleConfigController {
                         }
                         txtFlowValidationErrors.getChildren().add(new Text("\n"));
                     }
+
+                    // Update state to allow bypass next time
+                    hasValidated = true;
+                    btnNext.setText("Tiếp tục");
                 }
             });
 
@@ -182,7 +225,7 @@ public class ScheduleConfigController {
                 ex.printStackTrace();
                 showAlert("Lỗi hệ thống", ex.getMessage());
             });
-            
+
             lblStatus.textProperty().bind(validationTask.messageProperty());
 
             new Thread(validationTask).start();
