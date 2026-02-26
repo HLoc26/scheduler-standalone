@@ -14,6 +14,7 @@ import javafx.scene.text.TextAlignment;
 import javafx.stage.FileChooser;
 
 import java.io.File;
+import java.text.Collator;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
@@ -22,7 +23,6 @@ public class ScheduleResultController {
 
     private final RepositoryOrchestrator repo;
     private Runnable onReGenerateRequest;
-    // Back request is no longer needed as this is the main view
 
     // --- FXML Fields for Sidebar ---
     @FXML
@@ -31,8 +31,10 @@ public class ScheduleResultController {
     private ToggleButton btnTabClass;
     @FXML
     private TextField txtSearch;
-    @FXML
-    private ListView<Object> listViewItems;
+    
+    // Updated Sidebar components
+    @FXML private TreeView<Object> treeViewTeachers;
+    @FXML private ListView<Clazz> listViewClasses;
 
     // --- FXML Fields for Main View ---
     @FXML
@@ -43,9 +45,6 @@ public class ScheduleResultController {
     private GridPane scheduleGrid;
     @FXML
     private HBox bottomButtonContainer; // Container for buttons at the bottom
-
-    // Data for filtering
-    private FilteredList<Object> filteredData;
 
     public ScheduleResultController(RepositoryOrchestrator repo) {
         this.repo = repo;
@@ -87,60 +86,60 @@ public class ScheduleResultController {
      * Sets up the Sidebar logic: CellFactory, Selection Listener, and Search Listener.
      */
     private void setupSidebar() {
-        // 1. Custom CellFactory to display proper names for Teacher or Class objects
-        listViewItems.setCellFactory(lv -> new ListCell<>() {
+        // --- 1. Setup Teacher TreeView ---
+        treeViewTeachers.setCellFactory(tv -> new TreeCell<>() {
             @Override
             protected void updateItem(Object item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty || item == null) {
                     setText(null);
-                    setGraphic(null);
+                } else if (item instanceof Department) {
+                    setText(((Department) item).getName());
+                    setStyle("-fx-font-weight: bold; -fx-text-fill: #34495e;");
+                } else if (item instanceof Teacher) {
+                    setText(((Teacher) item).getName());
+                    setStyle("-fx-font-weight: normal; -fx-text-fill: #2c3e50;");
                 } else {
-                    if (item instanceof Clazz) {
-                        setText(((Clazz) item).getClassName());
-                    } else if (item instanceof Teacher) {
-                        setText(((Teacher) item).getName());
-                    } else {
-                        setText(item.toString());
-                    }
+                    setText(item.toString());
                 }
             }
         });
 
-        // 2. Handle Item Selection
-        listViewItems.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null) {
-                // Show Schedule, Hide Placeholder
-                placeholderView.setVisible(false);
-                scrollPaneSchedule.setVisible(true);
-                renderSchedule(newVal);
-            } else {
-                // Hide Schedule, Show Placeholder
-                placeholderView.setVisible(true);
-                scrollPaneSchedule.setVisible(false);
+        treeViewTeachers.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && newVal.getValue() instanceof Teacher) {
+                handleSelection(newVal.getValue());
             }
         });
 
-        // 3. Handle Search/Filtering
+        // --- 2. Setup Class ListView ---
+        listViewClasses.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(Clazz item, boolean empty) {
+                super.updateItem(item, empty);
+                setText((empty || item == null) ? null : item.getClassName());
+            }
+        });
+
+        listViewClasses.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) handleSelection(newVal);
+        });
+
+        // --- 3. Search Logic ---
         txtSearch.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (filteredData != null) {
-                filteredData.setPredicate(item -> {
-                    // If filter text is empty, display all
-                    if (newVal == null || newVal.isEmpty()) return true;
-
-                    String lowerCaseFilter = newVal.toLowerCase();
-                    String content = "";
-
-                    if (item instanceof Clazz) content = ((Clazz) item).getClassName();
-                    else if (item instanceof Teacher) content = ((Teacher) item).getName();
-
-                    return content.toLowerCase().contains(lowerCaseFilter);
-                });
+            if (btnTabTeacher.isSelected()) {
+                refreshTeacherTree(newVal);
+            } else {
+                refreshClassList(newVal);
             }
         });
 
-        // 4. Initial Load (Default to Teacher tab)
-        loadSidebarData("teacher");
+        loadSidebarData();
+    }
+
+    private void handleSelection(Object entity) {
+        placeholderView.setVisible(false);
+        scrollPaneSchedule.setVisible(true);
+        renderSchedule(entity);
     }
 
     /**
@@ -148,36 +147,76 @@ public class ScheduleResultController {
      */
     @FXML
     public void onTabChanged() {
-        txtSearch.clear(); // Clear search when switching tabs
+        txtSearch.clear();
+        boolean isTeacherMode = btnTabTeacher.isSelected();
+        
+        treeViewTeachers.setVisible(isTeacherMode);
+        listViewClasses.setVisible(!isTeacherMode);
+        
+        loadSidebarData();
+    }
+
+    private void loadSidebarData() {
         if (btnTabTeacher.isSelected()) {
-            loadSidebarData("teacher");
+            refreshTeacherTree(txtSearch.getText());
         } else {
-            loadSidebarData("class");
+            refreshClassList(txtSearch.getText());
         }
     }
 
-    /**
-     * Loads data into the Sidebar ListView based on the selected mode.
-     */
-    @SuppressWarnings("unchecked")
-    private void loadSidebarData(String type) {
-        List<Object> data;
-        if ("teacher".equals(type)) {
-            data = (List<Object>) (List<?>) repo.getTeacherRepository().getAll();
-        } else {
-            data = (List<Object>) (List<?>) repo.getClassRepository().getAll();
+    private void refreshTeacherTree(String filter) {
+        TreeItem<Object> root = new TreeItem<>("Root");
+        String query = (filter == null) ? "" : filter.toLowerCase();
+
+        List<Department> departments = repo.getDepartmentRepository().getAll();
+        List<Teacher> allTeachers = repo.getTeacherRepository().getAll();
+        
+        // Sorting
+        Collator collator = Collator.getInstance(new Locale("vi", "VN"));
+        allTeachers.sort(Comparator.comparing(Teacher::getName, collator));
+
+        Map<String, TreeItem<Object>> deptNodes = new HashMap<>();
+        for (Department d : departments) {
+            TreeItem<Object> dNode = new TreeItem<>(d);
+            dNode.setExpanded(true);
+            deptNodes.put(d.getId(), dNode);
+        }
+        
+        TreeItem<Object> noDeptNode = new TreeItem<>("Chưa phân tổ");
+        noDeptNode.setExpanded(true);
+
+        for (Teacher t : allTeachers) {
+            if (!query.isEmpty() && !t.getName().toLowerCase().contains(query)) continue;
+
+            TreeItem<Object> tNode = new TreeItem<>(t);
+            if (t.getDepartment() != null && deptNodes.containsKey(t.getDepartment().getId())) {
+                deptNodes.get(t.getDepartment().getId()).getChildren().add(tNode);
+            } else {
+                noDeptNode.getChildren().add(tNode);
+            }
         }
 
-        // Wrap data in FilteredList for search functionality
-        filteredData = new FilteredList<>(FXCollections.observableArrayList(data), p -> true);
-        listViewItems.setItems(filteredData);
-
-        // Auto-select the first item if data exists (UI UX improvement)
-        if (!filteredData.isEmpty()) {
-            listViewItems.getSelectionModel().selectFirst();
-        } else {
-            listViewItems.getSelectionModel().clearSelection();
+        // Add non-empty departments to root
+        deptNodes.values().stream()
+            .filter(node -> !node.getChildren().isEmpty())
+            .forEach(root.getChildren()::add);
+        
+        if (!noDeptNode.getChildren().isEmpty()) {
+            root.getChildren().add(noDeptNode);
         }
+
+        treeViewTeachers.setRoot(root);
+    }
+
+    private void refreshClassList(String filter) {
+        List<Clazz> classes = repo.getClassRepository().getAll();
+        String query = (filter == null) ? "" : filter.toLowerCase();
+        
+        List<Clazz> filtered = classes.stream()
+                .filter(c -> query.isEmpty() || c.getClassName().toLowerCase().contains(query))
+                .toList();
+        
+        listViewClasses.setItems(FXCollections.observableArrayList(filtered));
     }
 
     /**

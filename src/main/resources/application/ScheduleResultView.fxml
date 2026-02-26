@@ -53,7 +53,10 @@
                     </StackPane>
                 </HBox>
 
-                <ListView fx:id="listViewItems" styleClass="sidebar-list" VBox.vgrow="ALWAYS"/>
+                <StackPane VBox.vgrow="ALWAYS">
+                    <TreeView fx:id="treeViewTeachers" styleClass="sidebar-list" showRoot="false" />
+                    <ListView fx:id="listViewClasses" styleClass="sidebar-list" visible="false"/>
+                </StackPane>
             </VBox>
             <StackPane style="-fx-background-color: white;">
 
