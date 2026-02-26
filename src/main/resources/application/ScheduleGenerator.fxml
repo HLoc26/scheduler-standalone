@@ -26,9 +26,9 @@
                     <Font name="System Bold" size="24.0"/>
                 </font>
             </Label>
-            <Label fx:id="lblSubStatus" text="Hệ thống đang khởi tạo dữ liệu..." textFill="#7f8c8d">
+            <Label fx:id="lblSubStatus" text="Hệ thống đang khởi tạo dữ liệu..." textFill="black">
                 <font>
-                    <Font size="14.0"/>
+                    <Font size="16.0"/>
                 </font>
             </Label>
         </children>
