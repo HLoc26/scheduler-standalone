@@ -375,103 +375,154 @@ public class TeacherController {
 
         VBox content = new VBox(10);
         content.setPadding(new Insets(10));
-        content.setPrefWidth(400);
-        content.setPrefHeight(300);
+        content.setPrefWidth(600);
+        content.setPrefHeight(400);
 
-        ListView<Department> deptListView = new ListView<>();
-        deptListView.setItems(FXCollections.observableArrayList(repositoryOrchestrator.getDepartmentRepository().getAll()));
+        TableView<Department> deptTable = new TableView<>();
+        deptTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        HBox actions = new HBox(10);
+        TableColumn<Department, String> colName = new TableColumn<>("Tên Tổ");
+        colName.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getName()));
+
+        TableColumn<Department, String> colSubjects = new TableColumn<>("Môn học");
+        colSubjects.setCellValueFactory(data -> {
+            Department d = data.getValue();
+            Department full = repositoryOrchestrator.getDepartmentRepository().getById(d.getId());
+            int count = (full != null && full.getQualifiedSubjects() != null) ? full.getQualifiedSubjects().size() : 0;
+            return new SimpleStringProperty(count + " môn");
+        });
+
+        TableColumn<Department, Void> colAction = new TableColumn<>("Thao tác");
+        colAction.setCellFactory(param -> new TableCell<>() {
+            private final Button btnSubjects = new Button("Gán môn");
+            private final Button btnDelete = new Button("Xóa");
+            private final HBox pane = new HBox(5, btnSubjects, btnDelete);
+
+            {
+                btnSubjects.setStyle("-fx-font-size: 11px;");
+                btnDelete.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 11px;");
+                pane.setAlignment(Pos.CENTER);
+
+                btnSubjects.setOnAction(event -> {
+                    Department d = getTableView().getItems().get(getIndex());
+                    showSubjectAssignmentDialog(d);
+                    getTableView().refresh();
+                });
+
+                btnDelete.setOnAction(event -> {
+                    Department d = getTableView().getItems().get(getIndex());
+                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Xóa tổ " + d.getName() + "?", ButtonType.YES, ButtonType.NO);
+                    alert.showAndWait().ifPresent(response -> {
+                        if (response == ButtonType.YES) {
+                            repositoryOrchestrator.getDepartmentRepository().delete(d.getId());
+                            getTableView().getItems().remove(d);
+                            loadDepartments();
+                            refreshTeacherTreeView();
+                        }
+                    });
+                });
+            }
+
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                setGraphic(empty ? null : pane);
+            }
+        });
+
+        deptTable.getColumns().addAll(colName, colSubjects, colAction);
+        deptTable.setItems(FXCollections.observableArrayList(repositoryOrchestrator.getDepartmentRepository().getAll()));
+
+        HBox addBox = new HBox(10);
+        addBox.setAlignment(Pos.CENTER_LEFT);
         TextField deptNameField = new TextField();
         deptNameField.setPromptText("Tên tổ mới...");
         Button btnAddDept = new Button("Thêm");
-        Button btnDeleteDept = new Button("Xóa");
 
         btnAddDept.setOnAction(e -> {
             String name = deptNameField.getText().trim();
             if (!name.isEmpty()) {
                 Department newDept = new Department(UUID.randomUUID().toString(), name);
                 repositoryOrchestrator.getDepartmentRepository().insert(newDept);
-                deptListView.getItems().add(newDept);
+                deptTable.getItems().add(newDept);
                 deptNameField.clear();
-                // Refresh main combo box and tree view
                 loadDepartments();
                 refreshTeacherTreeView();
             }
         });
 
-        btnDeleteDept.setOnAction(e -> {
-            Department selected = deptListView.getSelectionModel().getSelectedItem();
-            if (selected != null) {
-                repositoryOrchestrator.getDepartmentRepository().delete(selected.getId());
-                deptListView.getItems().remove(selected);
-                // Refresh main combo box and tree view
-                loadDepartments();
-                refreshTeacherTreeView();
-            }
-        });
-
-        // Subject assignment for department
-        Button btnAssignSubjects = new Button("Gán môn học");
-        btnAssignSubjects.setOnAction(e -> {
-            Department selected = deptListView.getSelectionModel().getSelectedItem();
-            if (selected != null) {
-                showSubjectAssignmentDialog(selected);
-            }
-        });
-
-        actions.getChildren().addAll(deptNameField, btnAddDept, btnDeleteDept, btnAssignSubjects);
-        content.getChildren().addAll(deptListView, actions);
+        addBox.getChildren().addAll(new Label("Thêm mới:"), deptNameField, btnAddDept);
+        content.getChildren().addAll(deptTable, addBox);
 
         dialog.getDialogPane().setContent(content);
         dialog.showAndWait();
     }
 
     private void showSubjectAssignmentDialog(Department department) {
-        Dialog<Void> dialog = new Dialog<>();
+        Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle("Gán môn học cho " + department.getName());
 
+        ButtonType saveButtonType = new ButtonType("Lưu thay đổi", ButtonBar.ButtonData.OK_DONE);
         ButtonType closeButtonType = new ButtonType("Đóng", ButtonBar.ButtonData.CANCEL_CLOSE);
-        dialog.getDialogPane().getButtonTypes().add(closeButtonType);
+        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, closeButtonType);
 
         VBox content = new VBox(10);
         content.setPadding(new Insets(10));
-        content.setPrefWidth(300);
+        content.setPrefWidth(400);
+        content.setPrefHeight(400);
 
-        ListView<Subject> subjectListView = new ListView<>();
+        // Container for checkboxes
+        VBox checkBoxContainer = new VBox(5);
+        ScrollPane scrollPane = new ScrollPane(checkBoxContainer);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setPrefHeight(300);
+        scrollPane.setStyle("-fx-background-color: transparent;");
+
         List<Subject> allSubjects = repositoryOrchestrator.getSubjectRepository().getAll();
-        subjectListView.setItems(FXCollections.observableArrayList(allSubjects));
-        subjectListView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 
-        // Pre-select existing subjects
         // Need to fetch full department details to get subjects
         Department fullDept = repositoryOrchestrator.getDepartmentRepository().getById(department.getId());
-        if (fullDept != null && fullDept.getQualifiedSubjects() != null) {
-            for (Subject s : fullDept.getQualifiedSubjects()) {
-                for (Subject item : subjectListView.getItems()) {
-                    if (item.getId().equals(s.getId())) {
-                        subjectListView.getSelectionModel().select(item);
-                        break;
+        List<Subject> currentSubjects = (fullDept != null && fullDept.getQualifiedSubjects() != null)
+                ? fullDept.getQualifiedSubjects()
+                : new ArrayList<>();
+
+        // Map to store subject and its checkbox
+        Map<Subject, CheckBox> subjectCheckBoxMap = new HashMap<>();
+
+        for (Subject s : allSubjects) {
+            CheckBox cb = new CheckBox(s.getName());
+            // Check if currently assigned
+            boolean isAssigned = currentSubjects.stream().anyMatch(existing -> existing.getId().equals(s.getId()));
+            cb.setSelected(isAssigned);
+
+            checkBoxContainer.getChildren().add(cb);
+            subjectCheckBoxMap.put(s, cb);
+        }
+
+        content.getChildren().addAll(new Label("Chọn các môn học thuộc tổ này:"), scrollPane);
+        dialog.getDialogPane().setContent(content);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == saveButtonType) {
+                List<Subject> selectedSubjects = new ArrayList<>();
+                for (Map.Entry<Subject, CheckBox> entry : subjectCheckBoxMap.entrySet()) {
+                    if (entry.getValue().isSelected()) {
+                        selectedSubjects.add(entry.getKey());
+                    }
+                }
+
+                if (fullDept != null) {
+                    fullDept.setQualifiedSubjects(selectedSubjects);
+                    repositoryOrchestrator.getDepartmentRepository().update(fullDept);
+
+                    if (selectedTeacher != null && selectedTeacher.getDepartment() != null && selectedTeacher.getDepartment().getId().equals(department.getId())) {
+                        updateSubjectListForTeacher(selectedTeacher);
                     }
                 }
             }
-        }
-
-        Button btnSaveSubjects = new Button("Lưu thay đổi");
-        btnSaveSubjects.setOnAction(e -> {
-            List<Subject> selectedSubjects = new ArrayList<>(subjectListView.getSelectionModel().getSelectedItems());
-            fullDept.setQualifiedSubjects(selectedSubjects);
-            repositoryOrchestrator.getDepartmentRepository().update(fullDept);
-
-            if (selectedTeacher != null && selectedTeacher.getDepartment() != null && selectedTeacher.getDepartment().getId().equals(department.getId())) {
-                updateSubjectListForTeacher(selectedTeacher);
-            }
-
-            dialog.close();
+            return dialogButton;
         });
 
-        content.getChildren().addAll(new Label("Chọn các môn học thuộc tổ này:"), subjectListView, btnSaveSubjects);
-        dialog.getDialogPane().setContent(content);
         dialog.showAndWait();
     }
 
