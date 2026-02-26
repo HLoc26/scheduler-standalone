@@ -2,6 +2,7 @@ package application.controllers;
 
 import application.models.*;
 import application.repository.RepositoryOrchestrator;
+import application.utils.ScheduleValidator;
 import application.views.TimeGridSelector;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleObjectProperty;
@@ -11,6 +12,7 @@ import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
@@ -19,6 +21,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Rectangle;
 import javafx.util.Callback;
 import scheduler.common.constants.SubjectConstants;
 
@@ -28,6 +31,7 @@ import java.util.*;
 public class TeacherController {
 
     private final RepositoryOrchestrator repositoryOrchestrator;
+    private final ScheduleValidator scheduleValidator;
     private final ObservableList<Teacher> teacherList = FXCollections.observableArrayList();
     // Temporary assignment before save
     private final ObservableList<Assignment> currentAssignments = FXCollections.observableArrayList();
@@ -90,6 +94,7 @@ public class TeacherController {
 
     public TeacherController(RepositoryOrchestrator repositoryOrchestrator) {
         this.repositoryOrchestrator = repositoryOrchestrator;
+        this.scheduleValidator = new ScheduleValidator(repositoryOrchestrator);
     }
 
     public void initialize() {
@@ -149,10 +154,43 @@ public class TeacherController {
 
     private void setupTimeGrid() {
         timeGridSelector = new TimeGridSelector();
-        timeGridContainer.getChildren().add(timeGridSelector);
+
+        HBox legend = createLegend();
+        VBox container = new VBox(10);
+        container.getChildren().addAll(timeGridSelector, legend);
+        container.setAlignment(Pos.CENTER);
+
+        timeGridContainer.getChildren().add(container);
 
         // Update capacity when grid changes
         timeGridSelector.setOnGridChanged(this::updateRemainingCapacity);
+    }
+
+    private HBox createLegend() {
+        HBox legend = new HBox(20);
+        legend.setAlignment(Pos.CENTER);
+        legend.setPadding(new Insets(10));
+
+        legend.getChildren().addAll(
+                createLegendItem("#ef9a9a", "Giáo viên bận"),
+                createLegendItem("#bdc3c7", "Học sinh nghỉ"),
+                createLegendItem("#f1c40f", "Hoạt động chung")
+        );
+        return legend;
+    }
+
+    private HBox createLegendItem(String color, String text) {
+        HBox item = new HBox(5);
+        item.setAlignment(Pos.CENTER_LEFT);
+
+        Rectangle rect = new Rectangle(20, 20);
+        rect.setStyle("-fx-fill: " + color + "; -fx-stroke: #7f8c8d; -fx-stroke-width: 1;");
+
+        Label lbl = new Label(text);
+        lbl.setStyle("-fx-font-size: 12px; -fx-text-fill: black;");
+
+        item.getChildren().addAll(rect, lbl);
+        return item;
     }
 
     private void setupTeacherTreeView() {
@@ -337,103 +375,154 @@ public class TeacherController {
 
         VBox content = new VBox(10);
         content.setPadding(new Insets(10));
-        content.setPrefWidth(400);
-        content.setPrefHeight(300);
+        content.setPrefWidth(600);
+        content.setPrefHeight(400);
 
-        ListView<Department> deptListView = new ListView<>();
-        deptListView.setItems(FXCollections.observableArrayList(repositoryOrchestrator.getDepartmentRepository().getAll()));
+        TableView<Department> deptTable = new TableView<>();
+        deptTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        HBox actions = new HBox(10);
+        TableColumn<Department, String> colName = new TableColumn<>("Tên Tổ");
+        colName.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getName()));
+
+        TableColumn<Department, String> colSubjects = new TableColumn<>("Môn học");
+        colSubjects.setCellValueFactory(data -> {
+            Department d = data.getValue();
+            Department full = repositoryOrchestrator.getDepartmentRepository().getById(d.getId());
+            int count = (full != null && full.getQualifiedSubjects() != null) ? full.getQualifiedSubjects().size() : 0;
+            return new SimpleStringProperty(count + " môn");
+        });
+
+        TableColumn<Department, Void> colAction = new TableColumn<>("Thao tác");
+        colAction.setCellFactory(param -> new TableCell<>() {
+            private final Button btnSubjects = new Button("Gán môn");
+            private final Button btnDelete = new Button("Xóa");
+            private final HBox pane = new HBox(5, btnSubjects, btnDelete);
+
+            {
+                btnSubjects.setStyle("-fx-font-size: 11px;");
+                btnDelete.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 11px;");
+                pane.setAlignment(Pos.CENTER);
+
+                btnSubjects.setOnAction(event -> {
+                    Department d = getTableView().getItems().get(getIndex());
+                    showSubjectAssignmentDialog(d);
+                    getTableView().refresh();
+                });
+
+                btnDelete.setOnAction(event -> {
+                    Department d = getTableView().getItems().get(getIndex());
+                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Xóa tổ " + d.getName() + "?", ButtonType.YES, ButtonType.NO);
+                    alert.showAndWait().ifPresent(response -> {
+                        if (response == ButtonType.YES) {
+                            repositoryOrchestrator.getDepartmentRepository().delete(d.getId());
+                            getTableView().getItems().remove(d);
+                            loadDepartments();
+                            refreshTeacherTreeView();
+                        }
+                    });
+                });
+            }
+
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                setGraphic(empty ? null : pane);
+            }
+        });
+
+        deptTable.getColumns().addAll(colName, colSubjects, colAction);
+        deptTable.setItems(FXCollections.observableArrayList(repositoryOrchestrator.getDepartmentRepository().getAll()));
+
+        HBox addBox = new HBox(10);
+        addBox.setAlignment(Pos.CENTER_LEFT);
         TextField deptNameField = new TextField();
         deptNameField.setPromptText("Tên tổ mới...");
         Button btnAddDept = new Button("Thêm");
-        Button btnDeleteDept = new Button("Xóa");
 
         btnAddDept.setOnAction(e -> {
             String name = deptNameField.getText().trim();
             if (!name.isEmpty()) {
                 Department newDept = new Department(UUID.randomUUID().toString(), name);
                 repositoryOrchestrator.getDepartmentRepository().insert(newDept);
-                deptListView.getItems().add(newDept);
+                deptTable.getItems().add(newDept);
                 deptNameField.clear();
-                // Refresh main combo box and tree view
                 loadDepartments();
                 refreshTeacherTreeView();
             }
         });
 
-        btnDeleteDept.setOnAction(e -> {
-            Department selected = deptListView.getSelectionModel().getSelectedItem();
-            if (selected != null) {
-                repositoryOrchestrator.getDepartmentRepository().delete(selected.getId());
-                deptListView.getItems().remove(selected);
-                // Refresh main combo box and tree view
-                loadDepartments();
-                refreshTeacherTreeView();
-            }
-        });
-
-        // Subject assignment for department
-        Button btnAssignSubjects = new Button("Gán môn học");
-        btnAssignSubjects.setOnAction(e -> {
-            Department selected = deptListView.getSelectionModel().getSelectedItem();
-            if (selected != null) {
-                showSubjectAssignmentDialog(selected);
-            }
-        });
-
-        actions.getChildren().addAll(deptNameField, btnAddDept, btnDeleteDept, btnAssignSubjects);
-        content.getChildren().addAll(deptListView, actions);
+        addBox.getChildren().addAll(new Label("Thêm mới:"), deptNameField, btnAddDept);
+        content.getChildren().addAll(deptTable, addBox);
 
         dialog.getDialogPane().setContent(content);
         dialog.showAndWait();
     }
 
     private void showSubjectAssignmentDialog(Department department) {
-        Dialog<Void> dialog = new Dialog<>();
+        Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle("Gán môn học cho " + department.getName());
 
+        ButtonType saveButtonType = new ButtonType("Lưu thay đổi", ButtonBar.ButtonData.OK_DONE);
         ButtonType closeButtonType = new ButtonType("Đóng", ButtonBar.ButtonData.CANCEL_CLOSE);
-        dialog.getDialogPane().getButtonTypes().add(closeButtonType);
+        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, closeButtonType);
 
         VBox content = new VBox(10);
         content.setPadding(new Insets(10));
-        content.setPrefWidth(300);
+        content.setPrefWidth(400);
+        content.setPrefHeight(400);
 
-        ListView<Subject> subjectListView = new ListView<>();
+        // Container for checkboxes
+        VBox checkBoxContainer = new VBox(5);
+        ScrollPane scrollPane = new ScrollPane(checkBoxContainer);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setPrefHeight(300);
+        scrollPane.setStyle("-fx-background-color: transparent;");
+
         List<Subject> allSubjects = repositoryOrchestrator.getSubjectRepository().getAll();
-        subjectListView.setItems(FXCollections.observableArrayList(allSubjects));
-        subjectListView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 
-        // Pre-select existing subjects
         // Need to fetch full department details to get subjects
         Department fullDept = repositoryOrchestrator.getDepartmentRepository().getById(department.getId());
-        if (fullDept != null && fullDept.getQualifiedSubjects() != null) {
-            for (Subject s : fullDept.getQualifiedSubjects()) {
-                for (Subject item : subjectListView.getItems()) {
-                    if (item.getId().equals(s.getId())) {
-                        subjectListView.getSelectionModel().select(item);
-                        break;
+        List<Subject> currentSubjects = (fullDept != null && fullDept.getQualifiedSubjects() != null)
+                ? fullDept.getQualifiedSubjects()
+                : new ArrayList<>();
+
+        // Map to store subject and its checkbox
+        Map<Subject, CheckBox> subjectCheckBoxMap = new HashMap<>();
+
+        for (Subject s : allSubjects) {
+            CheckBox cb = new CheckBox(s.getName());
+            // Check if currently assigned
+            boolean isAssigned = currentSubjects.stream().anyMatch(existing -> existing.getId().equals(s.getId()));
+            cb.setSelected(isAssigned);
+
+            checkBoxContainer.getChildren().add(cb);
+            subjectCheckBoxMap.put(s, cb);
+        }
+
+        content.getChildren().addAll(new Label("Chọn các môn học thuộc tổ này:"), scrollPane);
+        dialog.getDialogPane().setContent(content);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == saveButtonType) {
+                List<Subject> selectedSubjects = new ArrayList<>();
+                for (Map.Entry<Subject, CheckBox> entry : subjectCheckBoxMap.entrySet()) {
+                    if (entry.getValue().isSelected()) {
+                        selectedSubjects.add(entry.getKey());
+                    }
+                }
+
+                if (fullDept != null) {
+                    fullDept.setQualifiedSubjects(selectedSubjects);
+                    repositoryOrchestrator.getDepartmentRepository().update(fullDept);
+
+                    if (selectedTeacher != null && selectedTeacher.getDepartment() != null && selectedTeacher.getDepartment().getId().equals(department.getId())) {
+                        updateSubjectListForTeacher(selectedTeacher);
                     }
                 }
             }
-        }
-
-        Button btnSaveSubjects = new Button("Lưu thay đổi");
-        btnSaveSubjects.setOnAction(e -> {
-            List<Subject> selectedSubjects = new ArrayList<>(subjectListView.getSelectionModel().getSelectedItems());
-            fullDept.setQualifiedSubjects(selectedSubjects);
-            repositoryOrchestrator.getDepartmentRepository().update(fullDept);
-
-            if (selectedTeacher != null && selectedTeacher.getDepartment() != null && selectedTeacher.getDepartment().getId().equals(department.getId())) {
-                updateSubjectListForTeacher(selectedTeacher);
-            }
-
-            dialog.close();
+            return dialogButton;
         });
 
-        content.getChildren().addAll(new Label("Chọn các môn học thuộc tổ này:"), subjectListView, btnSaveSubjects);
-        dialog.getDialogPane().setContent(content);
         dialog.showAndWait();
     }
 
@@ -457,7 +546,7 @@ public class TeacherController {
                 for (int p = 0; p < 5; p++) {
                     if (morningBusy[d][p]) {
                         currentMatrix[d][p] = true; // Busy
-                        timeGridSelector.setForcedBusyCell(d, p, "Tiết này học sinh nghỉ (theo cấu hình buổi học)");
+                        timeGridSelector.setForcedBusyCell(d, p, "Tiết này học sinh nghỉ (theo cấu hình buổi học)", "#bdc3c7");
                     }
                 }
             }
@@ -469,7 +558,7 @@ public class TeacherController {
                 for (int p = 5; p < 10; p++) {
                     if (afternoonBusy[d][p]) {
                         currentMatrix[d][p] = true; // Busy
-                        timeGridSelector.setForcedBusyCell(d, p, "Tiết này học sinh nghỉ (theo cấu hình buổi học)");
+                        timeGridSelector.setForcedBusyCell(d, p, "Tiết này học sinh nghỉ (theo cấu hình buổi học)", "#bdc3c7");
                     }
                 }
             }
@@ -515,11 +604,11 @@ public class TeacherController {
         // Apply Busy to ALL 4 slots initially
         // Morning Flag Salute (Mon 0)
         currentMatrix[0][0] = true;
-        timeGridSelector.setForcedBusyCell(0, 0, "Giờ Chào cờ");
+        timeGridSelector.setForcedBusyCell(0, 0, "Giờ Chào cờ", "#f1c40f");
 
         // Morning Class Meeting
         currentMatrix[morningLastDay][morningLastPeriod] = true;
-        timeGridSelector.setForcedBusyCell(morningLastDay, morningLastPeriod, "Giờ Sinh hoạt lớp");
+        timeGridSelector.setForcedBusyCell(morningLastDay, morningLastPeriod, "Giờ Sinh hoạt lớp", "#f1c40f");
 
         int afternoonFlagSalutePeriod = 9;
         if (afternoonSession != null) {
@@ -533,11 +622,11 @@ public class TeacherController {
         }
 
         currentMatrix[0][afternoonFlagSalutePeriod] = true;
-        timeGridSelector.setForcedBusyCell(0, afternoonFlagSalutePeriod, "Giờ Chào cờ");
+        timeGridSelector.setForcedBusyCell(0, afternoonFlagSalutePeriod, "Giờ Chào cờ", "#f1c40f");
 
         // Afternoon Class Meeting
         currentMatrix[afternoonLastDay][afternoonLastPeriod] = true;
-        timeGridSelector.setForcedBusyCell(afternoonLastDay, afternoonLastPeriod, "Giờ Sinh hoạt lớp");
+        timeGridSelector.setForcedBusyCell(afternoonLastDay, afternoonLastPeriod, "Giờ Sinh hoạt lớp", "#f1c40f");
 
 
         // 4. Handle Exceptions for Homeroom Teachers
@@ -1094,6 +1183,29 @@ public class TeacherController {
                 }
             }
 
+            // NEW CONFLICT CHECKS
+            List<String> conflicts = validateTeacherConflicts(selected);
+            if (!conflicts.isEmpty()) {
+                Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+                alert.setTitle("Phát hiện xung đột");
+                alert.setHeaderText("Có các vấn đề tiềm ẩn với lịch của giáo viên này:");
+
+                StringBuilder sb = new StringBuilder();
+                for (String s : conflicts) sb.append("- ").append(s).append("\n");
+                sb.append("\nBạn có chắc chắn muốn lưu không?");
+
+                TextArea area = new TextArea(sb.toString());
+                area.setWrapText(true);
+                area.setEditable(false);
+                area.setPrefHeight(150);
+                alert.getDialogPane().setContent(area);
+
+                Optional<ButtonType> result = alert.showAndWait();
+                if (result.isEmpty() || result.get() != ButtonType.OK) {
+                    return;
+                }
+            }
+
             // Save to DB
             try {
                 boolean updated = repositoryOrchestrator.getTeacherRepository().update(selected);
@@ -1431,5 +1543,10 @@ public class TeacherController {
     private void loadDepartments() {
         List<Department> departments = repositoryOrchestrator.getDepartmentRepository().getAll();
         departmentComboBox.setItems(FXCollections.observableArrayList(departments));
+    }
+
+    private List<String> validateTeacherConflicts(Teacher teacher) {
+        List<Teacher> allTeachers = repositoryOrchestrator.getTeacherRepository().getAll();
+        return scheduleValidator.validateTeacherConflicts(teacher, allTeachers, currentAssignments);
     }
 }

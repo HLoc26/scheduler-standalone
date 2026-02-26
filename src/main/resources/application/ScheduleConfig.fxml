@@ -4,9 +4,10 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.Font?>
+<?import javafx.scene.text.TextFlow?>
 <VBox xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="application.controllers.ScheduleConfigController" xmlns="http://javafx.com/javafx/17"
-      alignment="TOP_CENTER" prefHeight="250.0" prefWidth="450.0" spacing="10.0"
+      alignment="TOP_CENTER" spacing="10.0"
       style="-fx-background-color: white;">
 
     <padding>
@@ -22,7 +23,7 @@
         <Separator prefWidth="200.0"/>
     </VBox>
 
-    <VBox alignment="CENTER" VBox.vgrow="ALWAYS">
+    <VBox alignment="CENTER" VBox.vgrow="ALWAYS" spacing="20.0">
         <GridPane hgap="20.0" vgap="20.0" alignment="CENTER">
             <columnConstraints>
                 <ColumnConstraints halignment="RIGHT" hgrow="SOMETIMES" minWidth="10.0" percentWidth="40.0"/>
@@ -31,15 +32,16 @@
             <rowConstraints>
                 <RowConstraints minHeight="10.0" prefHeight="40.0" vgrow="SOMETIMES"/>
                 <RowConstraints minHeight="10.0" prefHeight="40.0" vgrow="SOMETIMES"/>
+                <RowConstraints minHeight="10.0" prefHeight="40.0" vgrow="SOMETIMES"/>
             </rowConstraints>
             <children>
-                <Label text="Thời gian tối đa (giây):" textFill="#34495e" GridPane.rowIndex="0"
+                <Label text="Thời gian tối đa (phút):" textFill="#34495e" GridPane.rowIndex="0"
                        GridPane.columnIndex="0">
                     <font>
                         <Font size="14.0"/>
                     </font>
                 </Label>
-                <Spinner fx:id="spnMaxTime" editable="true" maxWidth="Infinity" GridPane.rowIndex="0"
+                <Spinner fx:id="spnMaxTime" editable="true" maxWidth="200.0" GridPane.rowIndex="0"
                          GridPane.columnIndex="1"/>
 
                 <Label text="Số luồng xử lý (Workers):" textFill="#34495e" GridPane.rowIndex="1"
@@ -48,16 +50,46 @@
                         <Font size="14.0"/>
                     </font>
                 </Label>
-                <Spinner fx:id="spnMaxWorkers" editable="true" maxWidth="Infinity" GridPane.rowIndex="1"
+                <Spinner fx:id="spnMaxWorkers" editable="true" maxWidth="200.0" GridPane.rowIndex="1"
                          GridPane.columnIndex="1"/>
+
+                <CheckBox fx:id="chkRunPreCheck" text="Chạy kiểm tra dữ liệu trước khi xếp lịch" selected="true"
+                          textFill="#34495e" GridPane.rowIndex="2" GridPane.columnIndex="0" GridPane.columnSpan="2"
+                          GridPane.halignment="CENTER">
+                    <font>
+                        <Font size="14.0"/>
+                    </font>
+                </CheckBox>
             </children>
         </GridPane>
+
+        <VBox fx:id="validationContainer" visible="false" managed="false" spacing="10.0" alignment="TOP_LEFT" VBox.vgrow="ALWAYS"
+              style="-fx-background-color: #f8f9fa; -fx-border-color: #dee2e6; -fx-border-radius: 5; -fx-background-radius: 5;">
+            <padding>
+                <Insets top="10.0" right="10.0" bottom="10.0" left="10.0"/>
+            </padding>
+            <HBox spacing="10.0" alignment="CENTER_LEFT">
+                <ProgressIndicator fx:id="progressIndicator" prefHeight="20.0" prefWidth="20.0"/>
+                <Label fx:id="lblStatus" text="Đang kiểm tra dữ liệu..." textFill="#2c3e50">
+                    <font>
+                        <Font name="System Italic" size="14.0"/>
+                    </font>
+                </Label>
+            </HBox>
+            <Separator />
+            <ScrollPane fx:id="scrollPaneValidation" fitToWidth="true" visible="false" managed="false" VBox.vgrow="ALWAYS"
+                        style="-fx-background-color: transparent; -fx-background: transparent;">
+                <content>
+                    <TextFlow fx:id="txtFlowValidationErrors" style="-fx-background-color: transparent;" />
+                </content>
+            </ScrollPane>
+        </VBox>
     </VBox>
 
     <HBox alignment="BOTTOM_RIGHT" spacing="15.0">
         <Button fx:id="btnCancel" mnemonicParsing="false" onAction="#handleCancel"
                 style="-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;"
-                text="Hủy bỏ">
+                text="Quay lại">
             <padding>
                 <Insets bottom="10.0" left="20.0" right="20.0" top="10.0"/>
             </padding>

@@ -18,10 +18,11 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
 
-public class ScheduleController {
+public class ScheduleResultController {
 
     private final RepositoryOrchestrator repo;
     private Runnable onReGenerateRequest;
+    // Back request is no longer needed as this is the main view
 
     // --- FXML Fields for Sidebar ---
     @FXML
@@ -40,17 +41,46 @@ public class ScheduleController {
     private VBox placeholderView;          // To show when no item is selected
     @FXML
     private GridPane scheduleGrid;
+    @FXML
+    private HBox bottomButtonContainer; // Container for buttons at the bottom
 
     // Data for filtering
     private FilteredList<Object> filteredData;
 
-    public ScheduleController(RepositoryOrchestrator repo) {
+    public ScheduleResultController(RepositoryOrchestrator repo) {
         this.repo = repo;
     }
 
     public void initialize() {
         initGridStructure();
         setupSidebar();
+        setupBottomButtons();
+    }
+
+    private void setupBottomButtons() {
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT); // Align buttons to the left
+        // buttonBox.setPadding(new Insets(10)); // Padding handled by parent container
+
+        // Removed Back Button
+
+        Button btnReSchedule = new Button("Xếp lại lịch");
+        btnReSchedule.setStyle("-fx-background-color: #f1c40f; -fx-text-fill: black; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnReSchedule.setOnAction(e -> handleReGenerate());
+
+        Button btnExportExcel = new Button("Xuất Excel");
+        btnExportExcel.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnExportExcel.setOnAction(e -> handleExportExcel());
+
+        buttonBox.getChildren().addAll(btnReSchedule, btnExportExcel);
+
+        // Add buttonBox to the bottom container defined in FXML
+        if (bottomButtonContainer != null) {
+            // Add as first child to be on the left
+            bottomButtonContainer.getChildren().addFirst(buttonBox);
+            // Ensure spacing between buttons and legend
+            HBox.setHgrow(buttonBox, Priority.ALWAYS);
+        }
     }
 
     /**
@@ -325,6 +355,8 @@ public class ScheduleController {
 
     @FXML
     public void handleReGenerate() {
+        // Simply trigger the callback to open the config screen
+        // The validation logic is now moved to ScheduleConfigController
         if (onReGenerateRequest != null) {
             onReGenerateRequest.run();
         }
