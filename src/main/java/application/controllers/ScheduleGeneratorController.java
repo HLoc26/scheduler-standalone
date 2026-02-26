@@ -56,6 +56,7 @@ public class ScheduleGeneratorController {
     private volatile boolean isProcessFinished = false;
     // Store the progress where Phase 1 ended, to continue smoothly in Phase 2
     private double phase1EndProgress = 0.4;
+    private long engineStartTime;
 
     public ScheduleGeneratorController(RepositoryOrchestrator repo, int maxTime, int maxWorkers) {
         this.repo = repo;
@@ -130,6 +131,8 @@ public class ScheduleGeneratorController {
         // Xử lý khi Engine chạy xong thành công
         schedulerEngineService.setOnSucceeded(e -> {
             Map<Variable, Slot> result = schedulerEngineService.getValue();
+            long duration = (System.currentTimeMillis() - engineStartTime) / 1000;
+
             if (result != null && !result.isEmpty()) {
                 // Mark all as done immediately if engine finishes early
                 checklistItems.forEach(ChecklistItem::markDone);
@@ -138,7 +141,14 @@ public class ScheduleGeneratorController {
                 // Chuyển sang Phase 3: Lưu vào DB
                 saveData(result);
             } else {
-                handleError(new RuntimeException("Engine trả về kết quả rỗng!"));
+                // Check duration to determine error message
+                String errorMsg;
+                if (duration < maxTime) {
+                    errorMsg = "Ràng buộc quá nhiều nên không thể sắp xếp lịch.";
+                } else {
+                    errorMsg = "Hệ thống không có đủ thời gian để xếp lịch, hãy tăng thời gian tối đa lên.";
+                }
+                handleError(new RuntimeException(errorMsg));
             }
         });
 
@@ -236,6 +246,7 @@ public class ScheduleGeneratorController {
     private void runEngine(List<TaskData> inputData) {
         // Setup input for Service
         schedulerEngineService.setInputData(inputData);
+        engineStartTime = System.currentTimeMillis();
 
         // Create a dedicated Task for simulation to ensure UI binding works correctly
         Task<Void> simulationTask = new Task<>() {
